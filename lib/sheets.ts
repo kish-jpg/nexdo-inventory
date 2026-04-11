@@ -582,6 +582,182 @@ export async function batchSeed(categoryNames: string[], items: SeedItem[]): Pro
   await sheetsBatchAppend('Transactions', txRows);
 }
 
+// ─── Laundry Module ───────────────────────────────────────────────────────────
+
+const LAUNDRY_HEADERS = [
+  'id', 'date', 'kingDep', 'kingRegular', 'kingDay3',
+  'twinDep', 'twinRegular', 'twinDay3', 'notes', 'timestamp',
+];
+
+const DELIVERY_HEADERS = [
+  'id', 'date', 'kingSheets', 'singleSheets', 'pillowSlipsMed',
+  'pillowSlipsLarge', 'bathTowels', 'handTowels', 'faceTowels',
+  'bathMats', 'duvets', 'notes', 'timestamp',
+];
+
+export type LaundryLog = {
+  id: number;
+  date: string;
+  kingDep: number; kingRegular: number; kingDay3: number;
+  twinDep: number; twinRegular: number; twinDay3: number;
+  notes: string;
+  timestamp: string;
+};
+
+export type SincerityDelivery = {
+  id: number;
+  date: string;
+  kingSheets: number; singleSheets: number;
+  pillowSlipsMed: number; pillowSlipsLarge: number;
+  bathTowels: number; handTowels: number; faceTowels: number;
+  bathMats: number; duvets: number;
+  notes: string;
+  timestamp: string;
+};
+
+/** Items sent per room type (recipe) */
+export const LINEN_RECIPE = {
+  fullKing: {
+    'King Sheets': 3, 'Pillow Slips (Medium)': 2, 'Pillow Slips (Large)': 2,
+    'Bath Towels': 2, 'Hand Towels': 2, 'Face Towels': 2, 'Bath Mats': 1,
+  },
+  fullTwin: {
+    'Single Sheets': 6, 'Pillow Slips (Medium)': 2, 'Pillow Slips (Large)': 2,
+    'Bath Towels': 2, 'Hand Towels': 2, 'Face Towels': 2, 'Bath Mats': 1,
+  },
+  terryOnly: {
+    'Bath Towels': 2, 'Hand Towels': 2, 'Face Towels': 2, 'Bath Mats': 1,
+  },
+} as const;
+
+export function calcSentItems(log: Pick<LaundryLog, 'kingDep' | 'kingRegular' | 'kingDay3' | 'twinDep' | 'twinRegular' | 'twinDay3'>): Record<string, number> {
+  const fullKing = log.kingDep + log.kingDay3;
+  const fullTwin = log.twinDep + log.twinDay3;
+  const terryRooms = fullKing + log.kingRegular + fullTwin + log.twinRegular;
+
+  return {
+    'King Sheets':           fullKing * 3,
+    'Single Sheets':         fullTwin * 6,
+    'Pillow Slips (Medium)': (fullKing + fullTwin) * 2,
+    'Pillow Slips (Large)':  (fullKing + fullTwin) * 2,
+    'Bath Towels':           terryRooms * 2,
+    'Hand Towels':           terryRooms * 2,
+    'Face Towels':           terryRooms * 2,
+    'Bath Mats':             terryRooms * 1,
+  };
+}
+
+export async function initLaundrySheets(): Promise<void> {
+  await ensureSheet('Laundry');
+  await ensureSheet('SincerityDeliveries');
+  await sheetsUpdate('Laundry!A1:J1', LAUNDRY_HEADERS);
+  await sheetsUpdate('SincerityDeliveries!A1:M1', DELIVERY_HEADERS);
+}
+
+export async function saveLaundryLog(log: Omit<LaundryLog, 'id' | 'timestamp'>): Promise<LaundryLog> {
+  const id = await nextId('Laundry');
+  const timestamp = new Date().toISOString();
+  await sheetsAppend('Laundry', [
+    id, log.date, log.kingDep, log.kingRegular, log.kingDay3,
+    log.twinDep, log.twinRegular, log.twinDay3, log.notes, timestamp,
+  ]);
+  return { id, timestamp, ...log };
+}
+
+export async function getLaundryLogs(limit = 60): Promise<LaundryLog[]> {
+  const rows = await sheetsGet('Laundry!A:J');
+  if (rows.length <= 1) return [];
+  return rows.slice(1)
+    .filter(r => r[0])
+    .map(r => ({
+      id: ni(r[0]), date: r[1] ?? '', kingDep: ni(r[2]), kingRegular: ni(r[3]), kingDay3: ni(r[4]),
+      twinDep: ni(r[5]), twinRegular: ni(r[6]), twinDay3: ni(r[7]), notes: r[8] ?? '', timestamp: r[9] ?? '',
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit);
+}
+
+export async function saveSincerityDelivery(d: Omit<SincerityDelivery, 'id' | 'timestamp'>): Promise<SincerityDelivery> {
+  const id = await nextId('SincerityDeliveries');
+  const timestamp = new Date().toISOString();
+  await sheetsAppend('SincerityDeliveries', [
+    id, d.date, d.kingSheets, d.singleSheets, d.pillowSlipsMed, d.pillowSlipsLarge,
+    d.bathTowels, d.handTowels, d.faceTowels, d.bathMats, d.duvets, d.notes, timestamp,
+  ]);
+  return { id, timestamp, ...d };
+}
+
+export async function getSincerityDeliveries(limit = 60): Promise<SincerityDelivery[]> {
+  const rows = await sheetsGet('SincerityDeliveries!A:M');
+  if (rows.length <= 1) return [];
+  return rows.slice(1)
+    .filter(r => r[0])
+    .map(r => ({
+      id: ni(r[0]), date: r[1] ?? '',
+      kingSheets: ni(r[2]), singleSheets: ni(r[3]), pillowSlipsMed: ni(r[4]), pillowSlipsLarge: ni(r[5]),
+      bathTowels: ni(r[6]), handTowels: ni(r[7]), faceTowels: ni(r[8]),
+      bathMats: ni(r[9]), duvets: ni(r[10]), notes: r[11] ?? '', timestamp: r[12] ?? '',
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit);
+}
+
+const RECON_ITEMS: { name: string; deliveryKey: keyof Omit<SincerityDelivery, 'id' | 'date' | 'notes' | 'timestamp'> }[] = [
+  { name: 'King Sheets',           deliveryKey: 'kingSheets' },
+  { name: 'Single Sheets',         deliveryKey: 'singleSheets' },
+  { name: 'Pillow Slips (Medium)', deliveryKey: 'pillowSlipsMed' },
+  { name: 'Pillow Slips (Large)',  deliveryKey: 'pillowSlipsLarge' },
+  { name: 'Bath Towels',           deliveryKey: 'bathTowels' },
+  { name: 'Hand Towels',           deliveryKey: 'handTowels' },
+  { name: 'Face Towels',           deliveryKey: 'faceTowels' },
+  { name: 'Bath Mats',             deliveryKey: 'bathMats' },
+  { name: 'Duvet Covers',          deliveryKey: 'duvets' },
+];
+
+export async function getLaundryReconciliation() {
+  const [logs, deliveries, items] = await Promise.all([
+    getLaundryLogs(1000),
+    getSincerityDeliveries(1000),
+    getItems(),
+  ]);
+
+  // Aggregate total sent per item
+  const totalSent: Record<string, number> = {};
+  for (const log of logs) {
+    const sent = calcSentItems(log);
+    for (const [item, qty] of Object.entries(sent)) {
+      totalSent[item] = (totalSent[item] ?? 0) + qty;
+    }
+  }
+
+  // Aggregate total received per item
+  const totalReceived: Record<string, number> = {};
+  for (const d of deliveries) {
+    for (const { name, deliveryKey } of RECON_ITEMS) {
+      totalReceived[name] = (totalReceived[name] ?? 0) + (d[deliveryKey] as number);
+    }
+  }
+
+  // Build reconciliation rows
+  const rows = RECON_ITEMS.map(({ name }) => {
+    const sent = totalSent[name] ?? 0;
+    const received = totalReceived[name] ?? 0;
+    const atLaundry = Math.max(0, sent - received);
+    const inventoryItem = items.find(i => i.name === name);
+    const inHotel = inventoryItem?.stock ?? 0;
+    const par = inventoryItem?.targetStock ?? 0;
+    const total = inHotel + atLaundry;
+    const status = total >= par ? 'green' : total >= par * 0.7 ? 'amber' : 'red';
+    return { name, sent, received, atLaundry, inHotel, total, par, status };
+  });
+
+  // Recent logs for display
+  const recentLogs = logs.slice(0, 14);
+  const recentDeliveries = deliveries.slice(0, 14);
+
+  return { rows, recentLogs, recentDeliveries };
+}
+
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────
 
 export async function getDashboardStats() {
