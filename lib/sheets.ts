@@ -213,6 +213,16 @@ const CATEGORY_HEADERS = ['id', 'name'];
 
 const TX_HEADERS = ['id', 'itemId', 'itemName', 'quantity', 'type', 'reason', 'doneBy', 'timestamp'];
 
+// ─── Clear all data (keep headers) ───────────────────────────────────────────
+
+export async function clearAllData(): Promise<void> {
+  // Clear everything from row 2 onwards on all three sheets
+  await sheetsClear('Items!A2:Z10000');
+  await sheetsClear('Categories!A2:Z10000');
+  await sheetsClear('Transactions!A2:Z10000');
+  invalidateCache();
+}
+
 // ─── Sheet Init ───────────────────────────────────────────────────────────────
 
 export async function initSheets(): Promise<void> {
