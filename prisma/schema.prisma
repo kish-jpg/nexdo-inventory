@@ -1,0 +1,46 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Category {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  items Item[]
+}
+
+model Item {
+  id           Int      @id @default(autoincrement())
+  itemCode     String?  @unique
+  name         String
+  categoryId   Int
+  category     Category @relation(fields: [categoryId], references: [id])
+  subCategory  String?
+  unit         String   @default("Each")
+  stock        Int      @default(0)
+  targetStock  Int
+  reorderPoint Int?
+  reorderQty   Int?
+  status       String   @default("green")
+  location     String?
+  supplier     String?
+  unitCost     Float?
+  lastUpdated  DateTime @default(now()) @updatedAt
+
+  transactions StockTransaction[]
+}
+
+model StockTransaction {
+  id        Int      @id @default(autoincrement())
+  itemId    Int
+  item      Item     @relation(fields: [itemId], references: [id])
+  quantity  Int
+  type      String   // "add" | "remove" | "adjustment" | "stocktake"
+  reason    String?
+  doneBy    String?
+  timestamp DateTime @default(now())
+}
