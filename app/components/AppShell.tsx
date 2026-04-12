@@ -64,6 +64,14 @@ const LaundryIcon = () => (
   </svg>
 );
 
+const NexDoIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+    <path d="M2 17l10 5 10-5"/>
+    <path d="M2 12l10 5 10-5"/>
+  </svg>
+);
+
 const HotelIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -77,6 +85,7 @@ const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard',  href: '/',          Icon: DashboardIcon },
   { id: 'inventory', label: 'Inventory',  href: '/inventory', Icon: PackageIcon   },
   { id: 'laundry',   label: 'Laundry',    href: '/laundry',   Icon: LaundryIcon   },
+  { id: 'nexdo',     label: 'NexDo',      href: '/nexdo',     Icon: NexDoIcon     },
 ];
 
 // ─── AppShell Component ───────────────────────────────────────────────────────
@@ -111,7 +120,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarWidth = collapsed ? 64 : 232;
 
   // Determine active nav
-  const activePage = pathname === '/' ? 'dashboard' : pathname.startsWith('/laundry') ? 'laundry' : 'inventory';
+  const activePage = pathname === '/' ? 'dashboard'
+    : pathname.startsWith('/laundry') ? 'laundry'
+    : pathname.startsWith('/nexdo')   ? 'nexdo'
+    : 'inventory';
 
   return (
     <div className="app-layout">

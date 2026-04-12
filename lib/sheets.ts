@@ -810,3 +810,216 @@ export async function getDashboardStats() {
     recentTransactions: recentTxs,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NexDo Cleaning Inventory
+// Sheet tabs: NexDoItems, NexDoTransactions
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const NEXDO_ITEM_HEADERS = [
+  'id', 'code', 'name', 'category', 'subcategory', 'unit',
+  'stock', 'targetStock', 'reorderPoint', 'reorderQty',
+  'unitCost', 'notes', 'status', 'lastUpdated',
+];
+
+const NEXDO_TX_HEADERS = ['id', 'itemId', 'itemName', 'quantity', 'type', 'reason', 'doneBy', 'timestamp'];
+
+export type NexDoItem = {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  subcategory: string;
+  unit: string;
+  stock: number;
+  targetStock: number;
+  reorderPoint: number;
+  reorderQty: number;
+  unitCost: number | null;
+  notes: string;
+  status: string;
+  lastUpdated: string;
+};
+
+export type NexDoTransaction = {
+  id: number;
+  itemId: number;
+  itemName: string;
+  quantity: number;
+  type: string;
+  reason: string;
+  doneBy: string;
+  timestamp: string;
+};
+
+export async function initNexDoSheets(): Promise<void> {
+  await ensureSheet('NexDoItems');
+  await ensureSheet('NexDoTransactions');
+  await sheetsUpdate('NexDoItems!A1:N1', NEXDO_ITEM_HEADERS);
+  await sheetsUpdate('NexDoTransactions!A1:H1', NEXDO_TX_HEADERS);
+}
+
+function rowToNexDoItem(row: string[]): NexDoItem {
+  return {
+    id:           ni(row[0]),
+    code:         row[1] ?? '',
+    name:         row[2] ?? '',
+    category:     row[3] ?? '',
+    subcategory:  row[4] ?? '',
+    unit:         row[5] ?? 'Each',
+    stock:        ni(row[6]),
+    targetStock:  ni(row[7]),
+    reorderPoint: ni(row[8]),
+    reorderQty:   ni(row[9]),
+    unitCost:     n(row[10]),
+    notes:        row[11] ?? '',
+    status:       row[12] ?? 'green',
+    lastUpdated:  row[13] ?? '',
+  };
+}
+
+function nexdoItemToRow(item: NexDoItem): (string | number | null)[] {
+  return [
+    item.id, item.code, item.name, item.category, item.subcategory, item.unit,
+    item.stock, item.targetStock, item.reorderPoint, item.reorderQty,
+    item.unitCost ?? '', item.notes, item.status, new Date().toISOString(),
+  ];
+}
+
+export async function getNexDoItems(opts?: { category?: string; search?: string }): Promise<NexDoItem[]> {
+  const rows = await sheetsGet('NexDoItems!A:N');
+  if (rows.length <= 1) return [];
+  let items = rows.slice(1).filter(r => r[0] && r[2]).map(rowToNexDoItem);
+  if (opts?.category) items = items.filter(i => i.category === opts.category);
+  if (opts?.search) {
+    const s = opts.search.toLowerCase();
+    items = items.filter(i => i.name.toLowerCase().includes(s) || i.code.toLowerCase().includes(s));
+  }
+  return items.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+}
+
+export async function getNexDoItemById(id: number): Promise<NexDoItem | null> {
+  const items = await getNexDoItems();
+  return items.find(i => i.id === id) ?? null;
+}
+
+export async function createNexDoItem(data: Omit<NexDoItem, 'id' | 'status' | 'lastUpdated'>): Promise<NexDoItem> {
+  const id = await nextId('NexDoItems');
+  const status = computeStatus(data.stock, data.reorderPoint, data.targetStock);
+  const item: NexDoItem = { ...data, id, status, lastUpdated: new Date().toISOString() };
+  await sheetsAppend('NexDoItems', nexdoItemToRow(item));
+  return item;
+}
+
+export async function updateNexDoItem(id: number, data: Partial<Omit<NexDoItem, 'id' | 'lastUpdated'>>): Promise<NexDoItem | null> {
+  const rowNum = await findRowByID('NexDoItems', id);
+  if (!rowNum) return null;
+  const existing = await getNexDoItemById(id);
+  if (!existing) return null;
+  const stock = data.stock ?? existing.stock;
+  const reorderPoint = data.reorderPoint ?? existing.reorderPoint;
+  const targetStock = data.targetStock ?? existing.targetStock;
+  const updated: NexDoItem = {
+    ...existing, ...data, id, stock, reorderPoint, targetStock,
+    status: data.status ?? computeStatus(stock, reorderPoint, targetStock),
+    lastUpdated: new Date().toISOString(),
+  };
+  await sheetsUpdate(`NexDoItems!A${rowNum}:N${rowNum}`, nexdoItemToRow(updated));
+  return updated;
+}
+
+export async function adjustNexDoStock(
+  itemId: number,
+  type: 'add' | 'remove' | 'stocktake',
+  quantity: number,
+  reason?: string,
+  doneBy?: string,
+): Promise<{ item: NexDoItem; txId: number } | null> {
+  const item = await getNexDoItemById(itemId);
+  if (!item) return null;
+  const newStock = type === 'add' ? item.stock + quantity
+    : type === 'remove' ? Math.max(0, item.stock - quantity)
+    : quantity;
+  const txQty = type === 'remove' ? -quantity : quantity;
+  const updatedItem = await updateNexDoItem(itemId, {
+    stock: newStock,
+    status: computeStatus(newStock, item.reorderPoint, item.targetStock),
+  });
+  if (!updatedItem) return null;
+  const txId = await nextId('NexDoTransactions');
+  await sheetsAppend('NexDoTransactions', [
+    txId, itemId, item.name, txQty, type, reason ?? '', doneBy ?? '', new Date().toISOString(),
+  ]);
+  return { item: updatedItem, txId };
+}
+
+export async function getNexDoTransactions(opts?: { itemId?: number; limit?: number }): Promise<NexDoTransaction[]> {
+  const rows = await sheetsGet('NexDoTransactions!A:H');
+  if (rows.length <= 1) return [];
+  let txs = rows.slice(1).filter(r => r[0]).map(r => ({
+    id: ni(r[0]), itemId: ni(r[1]), itemName: r[2] ?? '',
+    quantity: ni(r[3]), type: r[4] ?? '', reason: r[5] ?? '',
+    doneBy: r[6] ?? '', timestamp: r[7] ?? '',
+  })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  if (opts?.itemId) txs = txs.filter(t => t.itemId === opts.itemId);
+  if (opts?.limit) txs = txs.slice(0, opts.limit);
+  return txs;
+}
+
+export async function getNexDoRestockList() {
+  const items = await getNexDoItems();
+  return items.filter(i => i.stock <= i.reorderPoint).map(i => ({
+    ...i,
+    needed: Math.max(0, i.reorderQty - (i.stock > 0 ? 0 : 0) + i.reorderQty),
+    orderQty: i.reorderQty,
+  }));
+}
+
+export async function getNexDoDashboardStats() {
+  const items = await getNexDoItems();
+  const recentTxs = await getNexDoTransactions({ limit: 20 });
+  const total = items.length;
+  const green = items.filter(i => i.status === 'green').length;
+  const amber = items.filter(i => i.status === 'amber').length;
+  const red = items.filter(i => i.status === 'red').length;
+  const needsRestock = items.filter(i => i.stock <= i.reorderPoint).length;
+  const totalValue = items.reduce((sum, i) => sum + (i.unitCost ?? 0) * i.stock, 0);
+  const categoryBreakdown = ['Equipment', 'Chemicals', 'Tools', 'Safety'].map(cat => {
+    const catItems = items.filter(i => i.category === cat);
+    return {
+      name: cat,
+      count: catItems.length,
+      value: catItems.reduce((s, i) => s + (i.unitCost ?? 0) * i.stock, 0),
+      low: catItems.filter(i => i.status !== 'green').length,
+    };
+  });
+  return { kpis: { total, green, amber, red, needsRestock, totalValue }, categoryBreakdown, recentTxs };
+}
+
+type NexDoSeedItem = {
+  code: string; name: string; cat: string; sub: string; unit: string;
+  stock: number; target: number; reorderPt: number; reorderQty: number;
+  cost: number | null; notes: string;
+};
+
+export async function sheetsClearNexDo(): Promise<void> {
+  await sheetsClear('NexDoItems!A2:Z10000');
+  await sheetsClear('NexDoTransactions!A2:Z10000');
+  invalidateCache();
+}
+
+export async function seedNexDoItems(items: NexDoSeedItem[]): Promise<void> {
+  const now = new Date().toISOString();
+  const rows: (string | number | null)[][] = items.map((item, i) => {
+    const id = i + 1;
+    const status = computeStatus(item.stock, item.reorderPt, item.target);
+    return [id, item.code, item.name, item.cat, item.sub, item.unit,
+      item.stock, item.target, item.reorderPt, item.reorderQty,
+      item.cost ?? '', item.notes, status, now];
+  });
+  await sheetsBatchAppend('NexDoItems', rows);
+  const txRows: (string | number | null)[][] = items.map((item, i) => [
+    i + 1, i + 1, item.name, item.stock, 'stocktake', 'Initial NexDo seed', '', now,
+  ]);
+  await sheetsBatchAppend('NexDoTransactions', txRows);
+}

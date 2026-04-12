@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { initSheets, clearAllData, computeStatus, batchSeed } from '@/lib/sheets';
 
-const CATEGORIES = ['Linens', 'Consumables', 'Amenities', 'Cleaning Supplies', 'Assets'];
+// NOTE: Cleaning liquids and commercial vacuums removed — now tracked in /nexdo (NexDo Inventory)
+const CATEGORIES = ['Linens', 'Consumables', 'Amenities', 'Assets'];
 
 const ITEMS = [
   // LINENS - Bedding
@@ -36,15 +37,10 @@ const ITEMS = [
   { code: 'AM003', name: 'Body Wash',             cat: 'Amenities', sub: 'Toiletries',   unit: 'Each', stock: 450, target: 440, reorderPt: 220, reorderQty: 200 },
   { code: 'AM004', name: 'Soap Bars',             cat: 'Amenities', sub: 'Toiletries',   unit: 'Each', stock: 400, target: 385, reorderPt: 193, reorderQty: 200 },
   { code: 'AM005', name: 'Toilet Paper Rolls',    cat: 'Amenities', sub: 'Toilet Paper', unit: 'Each', stock: 700, target: 660, reorderPt: 330, reorderQty: 300 },
-  // CLEANING SUPPLIES
-  { code: 'CS001', name: 'All-Purpose Cleaner',   cat: 'Cleaning Supplies', sub: 'Liquids', unit: 'Bottle', stock: 60,  target: 55,  reorderPt: 28, reorderQty: 30 },
-  { code: 'CS002', name: 'Glass Cleaner',         cat: 'Cleaning Supplies', sub: 'Liquids', unit: 'Bottle', stock: 35,  target: 33,  reorderPt: 17, reorderQty: 20 },
-  { code: 'CS003', name: 'Bathroom Cleaner',      cat: 'Cleaning Supplies', sub: 'Liquids', unit: 'Bottle', stock: 55,  target: 55,  reorderPt: 28, reorderQty: 30 },
-  { code: 'CS004', name: 'Disinfectant',          cat: 'Cleaning Supplies', sub: 'Liquids', unit: 'Bottle', stock: 45,  target: 44,  reorderPt: 22, reorderQty: 25 },
-  { code: 'CS005', name: 'Garbage Bags (Large)',  cat: 'Cleaning Supplies', sub: 'Bags',    unit: 'Roll',   stock: 120, target: 110, reorderPt: 55, reorderQty: 50 },
-  { code: 'CS006', name: 'Garbage Bags (Small)',  cat: 'Cleaning Supplies', sub: 'Bags',    unit: 'Roll',   stock: 170, target: 165, reorderPt: 83, reorderQty: 80 },
+  // RADISSON SUPPLIES — bin liners (Radisson-supplied, not NexDo)
+  { code: 'CS005', name: 'Garbage Bags (Large)',  cat: 'Assets', sub: 'Bin Liners', unit: 'Roll', stock: 120, target: 110, reorderPt: 55, reorderQty: 50 },
+  { code: 'CS006', name: 'Garbage Bags (Small)',  cat: 'Assets', sub: 'Bin Liners', unit: 'Roll', stock: 170, target: 165, reorderPt: 83, reorderQty: 80 },
   // ASSETS
-  { code: 'A001',  name: 'Commercial Vacuums',    cat: 'Assets', sub: 'Equipment',  unit: 'Unit', stock: 8,   target: 11,  reorderPt: 5,   reorderQty: 3   },
   { code: 'A002',  name: 'Ironing Boards',        cat: 'Assets', sub: 'Equipment',  unit: 'Unit', stock: 40,  target: 110, reorderPt: 55,  reorderQty: 70  },
   { code: 'A003',  name: 'Red Glasses',           cat: 'Assets', sub: 'Glassware',  unit: 'Each', stock: 200, target: 660, reorderPt: 330, reorderQty: 460 },
   { code: 'A004',  name: 'Coffee Mugs',           cat: 'Assets', sub: 'Drinkware',  unit: 'Each', stock: 300, target: 440, reorderPt: 220, reorderQty: 200 },
