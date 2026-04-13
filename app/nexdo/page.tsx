@@ -406,7 +406,9 @@ export default function NexDoPage() {
                   {(stats?.recentTxs ?? []).slice(0, 15).map((tx: any) => (
                     <tr key={tx.id}>
                       <td style={{ fontWeight: 500 }}>{tx.itemName}</td>
-                      <td><span className={`badge ${tx.type === 'add' ? 'tx-add' : tx.type === 'remove' ? 'tx-remove' : 'tx-stock'}`}>{tx.type}</span></td>
+                      <td><span className={`badge ${tx.type === 'add' ? 'tx-add' : tx.type === 'remove' ? 'tx-remove' : 'tx-stock'}`}>
+                        {tx.type === 'add' ? 'Received' : tx.type === 'remove' ? 'Used' : 'Initial Count'}
+                      </span></td>
                       <td className="text-right mono" style={{ color: tx.quantity > 0 ? 'var(--green)' : 'var(--red)' }}>{tx.quantity > 0 ? '+' : ''}{tx.quantity}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{tx.reason || '—'}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{fmtDate(tx.timestamp)}</td>

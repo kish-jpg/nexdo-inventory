@@ -404,7 +404,7 @@ export default function Dashboard() {
                         </td>
                         <td>
                           <span className={txBadgeClass(tx.type)}>
-                            {tx.type}
+                            {tx.type === 'add' ? 'Received' : tx.type === 'remove' ? 'Used' : 'Initial Count'}
                           </span>
                         </td>
                         <td className="text-right mono" style={{

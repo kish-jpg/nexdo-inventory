@@ -996,6 +996,122 @@ export async function getNexDoDashboardStats() {
   return { kpis: { total, green, amber, red, needsRestock, totalValue }, categoryBreakdown, recentTxs };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Occupancy & Consumption Reports
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const OCCUPANCY_HEADERS = ['id', 'date', 'occupiedRooms', 'totalRooms', 'notes', 'timestamp'];
+const TOTAL_ROOMS = 322;
+
+export type OccupancyLog = {
+  id: number; date: string; occupiedRooms: number;
+  totalRooms: number; notes: string; timestamp: string;
+  occupancyPct: number;
+};
+
+export async function initOccupancySheet(): Promise<void> {
+  await ensureSheet('Occupancy');
+  await sheetsUpdate('Occupancy!A1:F1', OCCUPANCY_HEADERS);
+}
+
+export async function saveOccupancyLog(log: { date: string; occupiedRooms: number; notes?: string }): Promise<OccupancyLog> {
+  // Upsert: if entry exists for this date, update it; otherwise append
+  const rows = await sheetsGet('Occupancy!A:F');
+  const existing = rows.slice(1).findIndex(r => r[1] === log.date);
+  const id = existing >= 0 ? ni(rows[existing + 1][0]) : await nextId('Occupancy');
+  const timestamp = new Date().toISOString();
+  const row = [id, log.date, log.occupiedRooms, TOTAL_ROOMS, log.notes ?? '', timestamp];
+  if (existing >= 0) {
+    await sheetsUpdate(`Occupancy!A${existing + 2}:F${existing + 2}`, row);
+  } else {
+    await sheetsAppend('Occupancy', row);
+  }
+  invalidateCache();
+  return { id, date: log.date, occupiedRooms: log.occupiedRooms, totalRooms: TOTAL_ROOMS, notes: log.notes ?? '', timestamp, occupancyPct: Math.round((log.occupiedRooms / TOTAL_ROOMS) * 100) };
+}
+
+export async function getOccupancyLogs(limit = 90): Promise<OccupancyLog[]> {
+  const rows = await sheetsGet('Occupancy!A:F');
+  if (rows.length <= 1) return [];
+  return rows.slice(1).filter(r => r[0]).map(r => ({
+    id: ni(r[0]), date: r[1] ?? '', occupiedRooms: ni(r[2]),
+    totalRooms: ni(r[3]) || TOTAL_ROOMS, notes: r[4] ?? '', timestamp: r[5] ?? '',
+    occupancyPct: Math.round((ni(r[2]) / (ni(r[3]) || TOTAL_ROOMS)) * 100),
+  })).sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
+}
+
+export async function getConsumptionReport(days = 30) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString();
+
+  // Get all "remove" transactions in the window from both inventories
+  const [radissonTxs, nexdoTxs, radissonItems, nexdoItems, occupancyLogs] = await Promise.all([
+    getTransactions({ limit: 5000 }),
+    getNexDoTransactions({ limit: 5000 }),
+    getItems(),
+    getNexDoItems(),
+    getOccupancyLogs(days + 10),
+  ]);
+
+  // Filter to window and removals only
+  const radissonRemovals = radissonTxs.filter(t => t.type === 'remove' && t.timestamp >= cutoffStr);
+  const nexdoRemovals    = nexdoTxs.filter(t => t.type === 'remove' && t.timestamp >= cutoffStr);
+
+  // Occupancy in window
+  const occInWindow = occupancyLogs.filter(o => o.date >= cutoff.toISOString().slice(0, 10));
+  const avgOccupancy = occInWindow.length > 0
+    ? Math.round(occInWindow.reduce((s, o) => s + o.occupancyPct, 0) / occInWindow.length)
+    : null;
+  const totalOccupiedRoomNights = occInWindow.reduce((s, o) => s + o.occupiedRooms, 0);
+  const daysWithData = Math.max(days, 1);
+
+  // Build consumption rows for Radisson items (linens focus)
+  const radissonConsumption = radissonItems
+    .filter(i => i.category.name === 'Linens')
+    .map(item => {
+      const txs = radissonRemovals.filter(t => t.itemId === item.id);
+      const totalUsed = txs.reduce((s, t) => s + Math.abs(t.quantity), 0);
+      const dailyRate = totalUsed / daysWithData;
+      const daysRemaining = dailyRate > 0 ? Math.round(item.stock / dailyRate) : null;
+      const perRoom = totalOccupiedRoomNights > 0 ? +(totalUsed / totalOccupiedRoomNights).toFixed(3) : null;
+      return { id: item.id, name: item.name, category: 'Linens', totalUsed, dailyRate: +dailyRate.toFixed(1), daysRemaining, stock: item.stock, perRoom, status: item.status };
+    });
+
+  // Build consumption rows for NexDo items
+  const nexdoConsumption = nexdoItems.map(item => {
+    const txs = nexdoRemovals.filter(t => t.itemId === item.id);
+    const totalUsed = txs.reduce((s, t) => s + Math.abs(t.quantity), 0);
+    const totalCost = totalUsed * (item.unitCost ?? 0);
+    const dailyRate = totalUsed / daysWithData;
+    const daysRemaining = dailyRate > 0 ? Math.round(item.stock / dailyRate) : null;
+    const costPerRoom = totalOccupiedRoomNights > 0 && item.unitCost ? +(totalCost / totalOccupiedRoomNights).toFixed(4) : null;
+    return { id: item.id, name: item.name, category: item.category, totalUsed, totalCost: +totalCost.toFixed(2), dailyRate: +dailyRate.toFixed(2), daysRemaining, stock: item.stock, unitCost: item.unitCost, costPerRoom, status: item.status };
+  });
+
+  // NexDo cost summary
+  const nexdoTotalCost = nexdoConsumption.reduce((s, i) => s + i.totalCost, 0);
+  const nexdoCostPerRoom = totalOccupiedRoomNights > 0 ? +(nexdoTotalCost / totalOccupiedRoomNights).toFixed(2) : null;
+
+  // Urgency: items with <7 days remaining
+  const urgent = [
+    ...radissonConsumption.filter(i => i.daysRemaining !== null && i.daysRemaining < 7),
+    ...nexdoConsumption.filter(i => i.daysRemaining !== null && i.daysRemaining < 7),
+  ].sort((a, b) => (a.daysRemaining ?? 999) - (b.daysRemaining ?? 999));
+
+  return {
+    windowDays: days,
+    avgOccupancy,
+    totalOccupiedRoomNights,
+    daysWithOccupancyData: occInWindow.length,
+    radissonConsumption,
+    nexdoConsumption,
+    nexdoTotalCost: +nexdoTotalCost.toFixed(2),
+    nexdoCostPerRoom,
+    urgent,
+  };
+}
+
 type NexDoSeedItem = {
   code: string; name: string; cat: string; sub: string; unit: string;
   stock: number; target: number; reorderPt: number; reorderQty: number;

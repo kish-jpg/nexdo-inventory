@@ -368,7 +368,7 @@ function HistoryModal({ item, onClose }: { item: Item; onClose: () => void }) {
                   </td>
                   <td>
                     <span className={`badge ${tx.type === 'add' ? 'tx-add' : tx.type === 'remove' ? 'tx-remove' : 'tx-stock'}`}>
-                      {tx.type}
+                      {tx.type === 'add' ? 'Received' : tx.type === 'remove' ? 'Used' : 'Initial Count'}
                     </span>
                   </td>
                   <td className="text-right mono" style={{
