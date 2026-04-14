@@ -178,6 +178,15 @@ export default function LaundryPage() {
   const sent = calcSent(kingDep, kingReg, kingD3, twinDep, twinReg, twinD3);
   const totalRooms = kingDep + kingReg + kingD3 + twinDep + twinReg + twinD3;
 
+  // ── Derived: find today's logged items (if any)
+  const todayLog = logs.find(log => log.date === today());
+  const todayItems = todayLog
+    ? calcSent(todayLog.kingDep, todayLog.kingRegular, todayLog.kingDay3, todayLog.twinDep, todayLog.twinRegular, todayLog.twinDay3)
+    : null;
+  const todayTotalRooms = todayLog
+    ? todayLog.kingDep + todayLog.kingRegular + todayLog.kingDay3 + todayLog.twinDep + todayLog.twinRegular + todayLog.twinDay3
+    : 0;
+
   // ── Submit log
   async function submitLog(e: React.FormEvent) {
     e.preventDefault();
@@ -322,10 +331,10 @@ export default function LaundryPage() {
             <div className="glass-card" style={{ marginBottom: 16 }}>
               <div className="card-header">
                 <span className="card-title">Items Going to Sincerity</span>
-                {totalRooms > 0 && <span className="badge badge-blue">{totalRooms} rooms</span>}
+                {todayTotalRooms > 0 && <span className="badge badge-blue">{todayTotalRooms} rooms (today)</span>}
               </div>
               <div className="card-body" style={{ padding: 0 }}>
-                {totalRooms === 0 ? (
+                {!todayItems ? (
                   <div className="empty-state" style={{ padding: '32px 24px' }}>
                     <div className="empty-state-title">Enter room counts</div>
                     <div className="empty-state-sub">Calculated quantities will appear here</div>
@@ -339,7 +348,7 @@ export default function LaundryPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(sent).filter(([, qty]) => qty > 0).map(([name, qty]) => (
+                      {Object.entries(todayItems).filter(([, qty]) => qty > 0).map(([name, qty]) => (
                         <tr key={name}>
                           <td style={{ fontSize: 13 }}>{name}</td>
                           <td className="text-right mono" style={{ color: 'var(--blue)', fontWeight: 600 }}>{qty}</td>
