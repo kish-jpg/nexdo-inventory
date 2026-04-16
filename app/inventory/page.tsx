@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/app/components/AuthProvider';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,9 +69,11 @@ type ItemFormProps = {
   onClose: () => void;
   loading: boolean;
   error: string | null;
+  canEditMeta: boolean;
+  canSeeCosts: boolean;
 };
 
-function ItemFormModal({ mode, item, categories, onSave, onClose, loading, error }: ItemFormProps) {
+function ItemFormModal({ mode, item, categories, onSave, onClose, loading, error, canEditMeta, canSeeCosts }: ItemFormProps) {
   const [form, setForm] = useState({
     name: item?.name ?? '',
     categoryId: String(item?.categoryId ?? (categories[0]?.id ?? '')),
@@ -122,75 +125,91 @@ function ItemFormModal({ mode, item, categories, onSave, onClose, loading, error
         {error && <div className="error-box">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          <div className="form-two-col">
-            <div className="form-row">
-              <label className="form-label">Item Name *</label>
-              <input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} required placeholder="e.g. Bath Towels" />
-            </div>
-            <div className="form-row">
-              <label className="form-label">Item Code</label>
-              <input className="form-input" value={form.itemCode} onChange={e => set('itemCode', e.target.value)} placeholder="e.g. L006" />
-            </div>
-          </div>
+          {/* Admin-only: identity fields */}
+          {canEditMeta && (
+            <>
+              <div className="form-two-col">
+                <div className="form-row">
+                  <label className="form-label">Item Name *</label>
+                  <input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} required placeholder="e.g. Bath Towels" />
+                </div>
+                <div className="form-row">
+                  <label className="form-label">Item Code</label>
+                  <input className="form-input" value={form.itemCode} onChange={e => set('itemCode', e.target.value)} placeholder="e.g. L006" />
+                </div>
+              </div>
 
-          <div className="form-two-col">
-            <div className="form-row">
-              <label className="form-label">Category *</label>
-              <select className="form-input" value={form.categoryId} onChange={e => set('categoryId', e.target.value)} required>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="form-row">
-              <label className="form-label">Sub-Category</label>
-              <input className="form-input" value={form.subCategory} onChange={e => set('subCategory', e.target.value)} placeholder="e.g. Towels" />
-            </div>
-          </div>
+              <div className="form-two-col">
+                <div className="form-row">
+                  <label className="form-label">Category *</label>
+                  <select className="form-input" value={form.categoryId} onChange={e => set('categoryId', e.target.value)} required>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label className="form-label">Sub-Category</label>
+                  <input className="form-input" value={form.subCategory} onChange={e => set('subCategory', e.target.value)} placeholder="e.g. Towels" />
+                </div>
+              </div>
 
+              <div className="form-two-col">
+                <div className="form-row">
+                  <label className="form-label">Unit</label>
+                  <select className="form-input" value={form.unit} onChange={e => set('unit', e.target.value)}>
+                    {['Each', 'Bottle', 'Roll', 'Box', 'Pack', 'Litre', 'Unit', 'Pair', 'Set', 'CT/6', 'CT/12', 'CT/15', 'CT/24', 'CT/48', 'CT/100', 'CT/200', 'CT/210', 'CT/500', 'CT/1000', 'CT/2000', 'PK/1000'].map(u => <option key={u}>{u}</option>)}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label className="form-label">Location</label>
+                  <input className="form-input" value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Pantry L5" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Stock — always visible */}
           <div className="form-two-col">
-            <div className="form-row">
-              <label className="form-label">Unit</label>
-              <select className="form-input" value={form.unit} onChange={e => set('unit', e.target.value)}>
-                {['Each', 'Bottle', 'Roll', 'Box', 'Pack', 'Litre', 'Unit', 'Pair', 'Set'].map(u => <option key={u}>{u}</option>)}
-              </select>
-            </div>
             <div className="form-row">
               <label className="form-label">Current Stock *</label>
               <input className="form-input" type="number" min="0" value={form.stock} onChange={e => set('stock', e.target.value)} required />
             </div>
+            {canEditMeta && (
+              <div className="form-row">
+                <label className="form-label">Par Level (Target) *</label>
+                <input className="form-input" type="number" min="0" value={form.targetStock} onChange={e => set('targetStock', e.target.value)} required placeholder="Hotel total par" />
+              </div>
+            )}
           </div>
 
-          <div className="form-two-col">
-            <div className="form-row">
-              <label className="form-label">Par Level (Target) *</label>
-              <input className="form-input" type="number" min="0" value={form.targetStock} onChange={e => set('targetStock', e.target.value)} required placeholder="Hotel total par" />
+          {/* Admin-only: ordering + cost fields */}
+          {canEditMeta && (
+            <div className="form-two-col">
+              <div className="form-row">
+                <label className="form-label">Reorder Point</label>
+                <input className="form-input" type="number" min="0" value={form.reorderPoint} onChange={e => set('reorderPoint', e.target.value)} placeholder="Alert threshold" />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Reorder Qty</label>
+                <input className="form-input" type="number" min="0" value={form.reorderQty} onChange={e => set('reorderQty', e.target.value)} placeholder="Qty to order" />
+              </div>
             </div>
-            <div className="form-row">
-              <label className="form-label">Reorder Point</label>
-              <input className="form-input" type="number" min="0" value={form.reorderPoint} onChange={e => set('reorderPoint', e.target.value)} placeholder="Alert threshold" />
-            </div>
-          </div>
+          )}
 
-          <div className="form-two-col">
-            <div className="form-row">
-              <label className="form-label">Reorder Qty</label>
-              <input className="form-input" type="number" min="0" value={form.reorderQty} onChange={e => set('reorderQty', e.target.value)} placeholder="Qty to order" />
+          {/* Admin-only: cost + supplier */}
+          {canEditMeta && (
+            <div className="form-two-col">
+              {canSeeCosts && (
+                <div className="form-row">
+                  <label className="form-label">Unit Cost (NZD)</label>
+                  <input className="form-input" type="number" min="0" step="0.01" value={form.unitCost} onChange={e => set('unitCost', e.target.value)} placeholder="0.00" />
+                </div>
+              )}
+              <div className="form-row">
+                <label className="form-label">Supplier</label>
+                <input className="form-input" value={form.supplier} onChange={e => set('supplier', e.target.value)} placeholder="Supplier name" />
+              </div>
             </div>
-            <div className="form-row">
-              <label className="form-label">Unit Cost (NZD)</label>
-              <input className="form-input" type="number" min="0" step="0.01" value={form.unitCost} onChange={e => set('unitCost', e.target.value)} placeholder="0.00" />
-            </div>
-          </div>
-
-          <div className="form-two-col">
-            <div className="form-row">
-              <label className="form-label">Supplier</label>
-              <input className="form-input" value={form.supplier} onChange={e => set('supplier', e.target.value)} placeholder="Supplier name" />
-            </div>
-            <div className="form-row">
-              <label className="form-label">Location</label>
-              <input className="form-input" value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Pantry L5" />
-            </div>
-          </div>
+          )}
 
           <div className="form-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
@@ -417,6 +436,7 @@ function DeleteConfirm({ item, onConfirm, onClose, loading }: { item: Item; onCo
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {
+  const { canEditMeta, canDelete, canSeeCosts } = useAuth();
   const [items, setItems]         = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCat, setActiveCat] = useState<number | null>(null);
@@ -502,6 +522,7 @@ export default function InventoryPage() {
           mode={modal} item={selected ?? undefined}
           categories={categories} onSave={handleSaveItem}
           onClose={closeModal} loading={saving} error={saveError}
+          canEditMeta={canEditMeta} canSeeCosts={canSeeCosts}
         />
       )}
       {modal === 'adjust' && selected && (
@@ -529,12 +550,11 @@ export default function InventoryPage() {
             <span style={{ fontFamily: 'JetBrains Mono', fontSize: '11px', color: 'var(--text-muted)' }}>
               {items.length} items
             </span>
-            <button
-              className="btn btn-primary"
-              onClick={() => openModal('new')}
-            >
-              + New Item
-            </button>
+            {canEditMeta && (
+              <button className="btn btn-primary" onClick={() => openModal('new')}>
+                + New Item
+              </button>
+            )}
           </div>
         </div>
 
@@ -710,20 +730,24 @@ export default function InventoryPage() {
                         >
                           History
                         </button>
-                        <button
-                          className="btn btn-sm btn-action-grey"
-                          onClick={() => openModal('edit', item)}
-                          title="Edit item"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-sm btn-action-red"
-                          onClick={() => openModal('delete', item)}
-                          title="Delete"
-                        >
-                          ×
-                        </button>
+                        {canEditMeta && (
+                          <button
+                            className="btn btn-sm btn-action-grey"
+                            onClick={() => openModal('edit', item)}
+                            title="Edit item"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            className="btn btn-sm btn-action-red"
+                            onClick={() => openModal('delete', item)}
+                            title="Delete"
+                          >
+                            ×
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
