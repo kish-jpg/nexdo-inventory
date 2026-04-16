@@ -540,7 +540,8 @@ export async function getItemTransactions(itemId: number, limit = 20): Promise<S
 
 type SeedItem = {
   code: string; name: string; cat: string; sub: string; unit: string;
-  stock: number; target: number; reorderPt: number; reorderQty: number;
+  stock: number; target: number; reorderPt: number | null; reorderQty: number | null;
+  cost?: number;
 };
 
 export async function batchSeed(categoryNames: string[], items: SeedItem[]): Promise<void> {
@@ -562,8 +563,8 @@ export async function batchSeed(categoryNames: string[], items: SeedItem[]): Pro
     return [
       id, item.code, item.name, item.cat, catId,
       item.sub, item.unit, item.stock, item.target,
-      item.reorderPt, item.reorderQty, status,
-      '', '', '', now, // supplier, unitCost, location, lastUpdated
+      item.reorderPt ?? '', item.reorderQty ?? '', status,
+      '', item.cost ?? '', '', now, // supplier, unitCost, location, lastUpdated
     ];
   });
   await sheetsBatchAppend('Items', itemRows);
