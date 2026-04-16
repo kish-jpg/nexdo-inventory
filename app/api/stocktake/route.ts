@@ -80,7 +80,11 @@ export async function GET() {
     const byCode = new Map(items.filter(i => i.itemCode).map(i => [i.itemCode!, i]));
     const catByName = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
 
+    let i = 0;
     for (const entry of STOCKTAKE) {
+      // Small delay every 5 items to stay within Sheets write quota
+      if (i > 0 && i % 5 === 0) await new Promise(r => setTimeout(r, 3000));
+      i++;
       try {
         if (entry.op === 'qty') {
           // ── Just update stock

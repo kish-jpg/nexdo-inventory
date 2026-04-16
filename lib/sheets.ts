@@ -70,7 +70,7 @@ async function getAccessToken(): Promise<string> {
   return cachedToken!;
 }
 
-// ─── Read Cache (5-second TTL — avoids repeated reads in the same request) ────
+// ─── Read Cache (60-second TTL — avoids repeated reads in bulk operations) ───
 
 const readCache = new Map<string, { data: string[][]; exp: number }>();
 
@@ -82,7 +82,13 @@ function cacheGet(key: string): string[][] | null {
 }
 
 function cacheSet(key: string, data: string[][]): void {
-  readCache.set(key, { data, exp: Date.now() + 5_000 });
+  readCache.set(key, { data, exp: Date.now() + 60_000 });
+}
+
+// ─── Rate-limit retry helper ──────────────────────────────────────────────────
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function invalidateCache(): void {
@@ -93,7 +99,7 @@ export function invalidateCache(): void {
 
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 
-async function sheetsGet(range: string): Promise<string[][]> {
+async function sheetsGet(range: string, attempt = 0): Promise<string[][]> {
   const cached = cacheGet(range);
   if (cached) return cached;
 
@@ -103,6 +109,14 @@ async function sheetsGet(range: string): Promise<string[][]> {
     headers: { Authorization: `Bearer ${token}` },
   });
   const data = await res.json() as any;
+
+  // Retry on 429 (rate limit) with exponential backoff — max 4 attempts
+  if (res.status === 429 && attempt < 4) {
+    const delay = (attempt + 1) * 15_000; // 15s, 30s, 45s, 60s
+    await sleep(delay);
+    return sheetsGet(range, attempt + 1);
+  }
+
   if (!res.ok) throw new Error(`Sheets GET error: ${JSON.stringify(data)}`);
   const values = data.values ?? [];
   cacheSet(range, values);
