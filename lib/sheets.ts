@@ -525,6 +525,66 @@ export async function adjustStock(
   return { item: updatedItem, txId };
 }
 
+/**
+ * Bulk stocktake — sets absolute stock for multiple items in a single pass.
+ * Uses 2 Sheets API reads total (Items + Transactions), then batch-writes,
+ * avoiding the per-item read storm that causes 429 quota errors.
+ */
+export async function applyStocktake(
+  entries: { code: string; qty: number }[],
+  reason = 'Stocktake',
+  doneBy = 'System',
+): Promise<{ updated: { code: string; name: string; qty: number }[]; notFound: string[] }> {
+  const now = new Date().toISOString();
+
+  // 1. Read all data ONCE before any writes
+  const [itemRows, txRows] = await Promise.all([
+    sheetsGet('Items!A:P'),
+    sheetsGet('Transactions!A:A'),
+  ]);
+
+  // 2. Build code → {id, rowNum, row[]} map from raw sheet data
+  type RowInfo = { id: number; rowNum: number; name: string; row: string[] };
+  const codeMap = new Map<string, RowInfo>();
+  itemRows.slice(1).forEach((row, i) => {
+    const code = row[1];
+    if (row[0] && code) {
+      codeMap.set(code, { id: parseInt(row[0]), rowNum: i + 2, name: row[2] ?? '', row });
+    }
+  });
+
+  // 3. Next transaction ID = current row count (header + data rows = length, so next = length)
+  let nextTxId = txRows.length;
+
+  const updated: { code: string; name: string; qty: number }[] = [];
+  const notFound: string[] = [];
+  const txBatch: (string | number | null)[][] = [];
+
+  // 4. Process each entry — compute new row, queue write
+  for (const entry of entries) {
+    const info = codeMap.get(entry.code);
+    if (!info) { notFound.push(entry.code); continue; }
+
+    // Build updated item row with new stock value
+    const newRow = [...info.row];
+    newRow[7]  = String(entry.qty);  // stock
+    newRow[11] = computeStatus(entry.qty, info.row[9] ? parseInt(info.row[9]) : null, parseInt(info.row[8]) || 0); // status
+    newRow[15] = now; // lastUpdated
+
+    // Write item row directly — no extra reads needed
+    await sheetsUpdate(`Items!A${info.rowNum}:P${info.rowNum}`, newRow);
+
+    // Queue transaction row
+    txBatch.push([++nextTxId, info.id, info.name, entry.qty, 'stocktake', reason, doneBy, now]);
+    updated.push({ code: entry.code, name: info.name, qty: entry.qty });
+  }
+
+  // 5. Write all transactions in ONE batch call
+  if (txBatch.length > 0) await sheetsBatchAppend('Transactions', txBatch);
+
+  return { updated, notFound };
+}
+
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
 export async function getTransactions(opts?: { itemId?: number; limit?: number }): Promise<SheetTransaction[]> {
