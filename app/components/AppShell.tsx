@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/app/components/AuthProvider';
 
 // ─── Inline SVG Icons ─────────────────────────────────────────────────────────
 
@@ -88,6 +89,14 @@ const HotelIcon = () => (
   </svg>
 );
 
+const LogoutIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+);
+
 // ─── Nav Items ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -102,9 +111,13 @@ const NAV_ITEMS = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { role, canSeeNexDo, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [mounted, setMounted] = useState(false);
+
+  // Don't show the shell on the login page
+  if (pathname === '/login') return <>{children}</>;
 
   // Hydrate theme from localStorage
   useEffect(() => {
@@ -158,7 +171,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Nav */}
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map(({ id, label, href, Icon }) => (
+          {NAV_ITEMS.filter(({ id }) => id !== 'nexdo' || canSeeNexDo).map(({ id, label, href, Icon }) => (
             <Link
               key={id}
               href={href}
@@ -172,7 +185,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* Footer: theme toggle */}
+        {/* Footer: theme toggle + logout */}
         <div className="sidebar-footer">
           <button
             className="sidebar-nav-item"
@@ -187,6 +200,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             )}
           </button>
+          {role && (
+            <button
+              className="sidebar-nav-item"
+              onClick={logout}
+              style={{ justifyContent: collapsed ? 'center' : undefined, color: 'var(--text-muted)' }}
+              title="Sign out"
+            >
+              <LogoutIcon />
+              {!collapsed && (
+                <span className="sidebar-nav-label" style={{ fontSize: '12px' }}>
+                  Sign Out
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Collapse toggle */}

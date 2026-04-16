@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "./components/AppShell";
+import { AuthProvider } from "./components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "NexDo Inventory — Radisson RED Auckland",
@@ -23,9 +24,11 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AppShell>
-          {children}
-        </AppShell>
+        <AuthProvider>
+          <AppShell>
+            {children}
+          </AppShell>
+        </AuthProvider>
       </body>
     </html>
   );
