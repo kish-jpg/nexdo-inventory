@@ -191,8 +191,26 @@ export default function Dashboard() {
       {/* Page Header */}
       <div className="page-header">
         <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+            <span style={{
+              background: 'var(--red)',
+              color: 'white',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              padding: '3px 8px',
+              borderRadius: '4px',
+            }}>
+              Radisson RED
+            </span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: 'var(--text-subtle)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Auckland
+            </span>
+          </div>
           <div className="page-title">DASHBOARD</div>
-          <div className="page-sub">Radisson RED Auckland · Sincerity Laundry — Order by 09:00</div>
+          <div className="page-sub">Sincerely Laundry — Order by 09:00</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div className="status-indicator">
@@ -204,13 +222,12 @@ export default function Dashboard() {
           </span>
           <button
             onClick={fetchDashboard}
+            aria-label="Refresh dashboard"
             style={{
               background: 'none', border: '1px solid var(--border)',
               color: 'var(--text-muted)', borderRadius: '6px',
               padding: '5px 10px', cursor: 'pointer', fontSize: '13px',
-              transition: 'all 0.15s',
             }}
-            title="Refresh"
           >
             ↻
           </button>
