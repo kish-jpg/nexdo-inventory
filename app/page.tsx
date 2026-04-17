@@ -205,7 +205,7 @@ export default function Dashboard() {
             }}>
               Radisson RED
             </span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: 'var(--text-subtle)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               Auckland
             </span>
           </div>
@@ -227,6 +227,7 @@ export default function Dashboard() {
               background: 'none', border: '1px solid var(--border)',
               color: 'var(--text-muted)', borderRadius: '6px',
               padding: '5px 10px', cursor: 'pointer', fontSize: '13px',
+              transition: 'all 0.15s',
             }}
           >
             ↻
