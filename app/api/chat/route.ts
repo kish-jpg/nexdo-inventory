@@ -120,40 +120,117 @@ ${supplierText}`;
 }
 
 // ─── Candidate list — tried in order until one works ─────────────────────────
-// Each entry is an independent (key × model) pair. Different models draw from
-// different quota buckets, so exhausting gemini-2.0-flash doesn't block the
-// 1.5-flash or flash-8b pools.
+// Two providers:
+//   'openrouter' — GEMMA_4_KEY — OpenAI-compatible SSE API via openrouter.ai
+//   'google'     — GEMINI_API_KEY — Google Generative AI SDK
 
-const CANDIDATES = [
-  // Primary key, fastest model first
-  { envVar: 'GEMMA_4_KEY',    model: 'gemini-2.0-flash'      },
-  { envVar: 'GEMMA_4_KEY',    model: 'gemini-2.0-flash-lite'  },
-  { envVar: 'GEMMA_4_KEY',    model: 'gemini-1.5-flash'       },
-  { envVar: 'GEMMA_4_KEY',    model: 'gemini-1.5-flash-8b'    },
-  // Backup key, same model order
-  { envVar: 'GEMINI_API_KEY', model: 'gemini-2.0-flash'      },
-  { envVar: 'GEMINI_API_KEY', model: 'gemini-2.0-flash-lite'  },
-  { envVar: 'GEMINI_API_KEY', model: 'gemini-1.5-flash'       },
-  { envVar: 'GEMINI_API_KEY', model: 'gemini-1.5-flash-8b'    },
-] as const;
+type Provider = 'openrouter' | 'google';
 
-// ─── Attempt one streaming call with a given key + model ──────────────────────
+interface Candidate {
+  envVar: string;
+  provider: Provider;
+  model: string;
+}
 
-async function tryStream(
+const CANDIDATES: Candidate[] = [
+  // ── OpenRouter (GEMMA_4_KEY) — Gemma models via openrouter.ai ──────────────
+  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-27b-it' },
+  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-12b-it' },
+  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-4b-it'  },
+  // ── Google AI (GEMINI_API_KEY) — each model has its own quota bucket ────────
+  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.0-flash'      },
+  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.0-flash-lite'  },
+  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-1.5-flash'       },
+  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-1.5-flash-8b'    },
+];
+
+// ─── OpenRouter stream (OpenAI-compatible SSE) ────────────────────────────────
+
+async function tryOpenRouterStream(
   apiKey: string,
-  modelName: string,
+  model: string,
   systemPrompt: string,
-  history: { role: string; parts: { text: string }[] }[],
-  lastUserMessage: string,
+  messages: { role: 'user' | 'model'; content: string }[],
 ): Promise<ReadableStream<Uint8Array>> {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    systemInstruction: systemPrompt,
+  // Convert internal message format → OpenAI format
+  // Our 'model' role maps to OpenAI 'assistant'
+  const oaiMessages = [
+    { role: 'system', content: systemPrompt },
+    ...messages.map(m => ({
+      role: m.role === 'model' ? 'assistant' : 'user',
+      content: m.content,
+    })),
+  ];
+
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://nexdo-inventory.vercel.app',
+      'X-Title': 'NexDo Inventory AI',
+    },
+    body: JSON.stringify({ model, messages: oaiMessages, stream: true }),
   });
 
-  const chat = model.startChat({ history });
-  const result = await chat.sendMessageStream(lastUserMessage);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenRouter ${res.status}: ${err.slice(0, 200)}`);
+  }
+
+  // Parse OpenAI SSE stream → plain text stream
+  return new ReadableStream({
+    async start(controller) {
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? ''; // keep incomplete line in buffer
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const data = trimmed.slice(5).trim();
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              const text = parsed.choices?.[0]?.delta?.content;
+              if (text) controller.enqueue(new TextEncoder().encode(text));
+            } catch { /* malformed chunk — skip */ }
+          }
+        }
+      } catch (err: any) {
+        controller.enqueue(new TextEncoder().encode(`\n\n[Stream error: ${err.message}]`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+}
+
+// ─── Google AI stream (Gemini SDK) ───────────────────────────────────────────
+
+async function tryGoogleStream(
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  messages: { role: 'user' | 'model'; content: string }[],
+): Promise<ReadableStream<Uint8Array>> {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const gemini = genAI.getGenerativeModel({ model, systemInstruction: systemPrompt });
+
+  const history = messages.slice(0, -1).map(m => ({
+    role: m.role,
+    parts: [{ text: m.content }],
+  }));
+  const lastMessage = messages[messages.length - 1].content;
+
+  const chat = gemini.startChat({ history });
+  const result = await chat.sendMessageStream(lastMessage);
 
   return new ReadableStream({
     async start(controller) {
@@ -163,9 +240,7 @@ async function tryStream(
           if (text) controller.enqueue(new TextEncoder().encode(text));
         }
       } catch (err: any) {
-        controller.enqueue(
-          new TextEncoder().encode(`\n\n[Stream error: ${err.message}]`)
-        );
+        controller.enqueue(new TextEncoder().encode(`\n\n[Stream error: ${err.message}]`));
       } finally {
         controller.close();
       }
@@ -185,14 +260,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No messages provided' }, { status: 400 });
     }
 
-    // Resolve available candidates (skip entries with missing env vars)
-    const candidates = CANDIDATES
-      .map(c => ({ ...c, key: process.env[c.envVar] }))
-      .filter(c => !!c.key);
-
+    // Resolve candidates that have keys set in env
+    const candidates = CANDIDATES.filter(c => !!process.env[c.envVar]);
     if (candidates.length === 0) {
       return NextResponse.json(
-        { error: 'No API key configured. Add GEMMA_4_KEY or GEMINI_API_KEY in Vercel env vars.' },
+        { error: 'No API key configured. Add GEMMA_4_KEY (OpenRouter) or GEMINI_API_KEY in Vercel env vars.' },
         { status: 500 }
       );
     }
@@ -206,42 +278,39 @@ export async function POST(req: NextRequest) {
         role === 'admin' ? 'full access' : role === 'nexdo' ? 'NexDo staff' : 'Radisson housekeeping'
       })`;
 
-    const history = messages.slice(0, -1).map(m => ({
-      role: m.role,
-      parts: [{ text: m.content }],
-    }));
-    const lastUserMessage = messages[messages.length - 1].content;
-
-    // Try each key in order — fall through to next on failure
+    // Try each candidate in order — skip to next on any error
     let lastError: Error | null = null;
-    for (const candidate of candidates) {
-      try {
-        const stream = await tryStream(
-          candidate.key!,
-          candidate.model,
-          systemPrompt,
-          history,
-          lastUserMessage,
-        );
 
+    for (const candidate of candidates) {
+      const apiKey = process.env[candidate.envVar]!;
+      const label = `${candidate.envVar}/${candidate.model}`;
+
+      try {
+        let stream: ReadableStream<Uint8Array>;
+
+        if (candidate.provider === 'openrouter') {
+          stream = await tryOpenRouterStream(apiKey, candidate.model, systemPrompt, messages);
+        } else {
+          stream = await tryGoogleStream(apiKey, candidate.model, systemPrompt, messages);
+        }
+
+        console.log(`[chat] serving with ${label}`);
         return new Response(stream, {
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
             'Cache-Control': 'no-cache, no-store',
             'X-Accel-Buffering': 'no',
-            'X-AI-Key': `${candidate.envVar}/${candidate.model}`, // visible in Vercel logs
+            'X-AI-Model': label,
           },
         });
       } catch (err: any) {
         lastError = err;
-        // Log which key+model failed, then try the next candidate
-        console.warn(`[chat] ${candidate.envVar}/${candidate.model} failed: ${err.message} — trying next candidate`);
+        console.warn(`[chat] ${label} failed: ${err.message} — trying next`);
       }
     }
 
-    // All keys exhausted
     return NextResponse.json(
-      { error: `All API keys failed. Last error: ${lastError?.message}` },
+      { error: `All ${candidates.length} AI candidates failed. Last: ${lastError?.message}` },
       { status: 502 }
     );
   } catch (error: any) {
