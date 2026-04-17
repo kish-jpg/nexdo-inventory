@@ -342,22 +342,20 @@ body {
 }
 
 .kpi-card {
-  background: var(--card-bg);
+  background: var(--surface);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: var(--sp-5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   box-shadow: var(--shadow);
-  border-left-width: 3px;
-  transition: var(--transition);
+  border-top-width: 2px;
+  transition: box-shadow var(--dur-normal) ease;
 }
 
-.kpi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
-.kpi-card.kpi-blue  { border-left-color: var(--blue); }
-.kpi-card.kpi-green { border-left-color: var(--green); }
-.kpi-card.kpi-amber { border-left-color: var(--amber); }
-.kpi-card.kpi-red   { border-left-color: var(--red); }
+.kpi-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.35); }
+.kpi-card.kpi-blue  { border-top-color: var(--blue); }
+.kpi-card.kpi-green { border-top-color: var(--green); }
+.kpi-card.kpi-amber { border-top-color: var(--amber); }
+.kpi-card.kpi-red   { border-top-color: var(--red); }
 
 .kpi-label {
   font-family: 'JetBrains Mono', monospace;
@@ -387,11 +385,9 @@ body {
 
 /* ─── Glass Card ────────────────────────────────────────────────────────── */
 .glass-card {
-  background: var(--card-bg);
+  background: var(--surface);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -402,6 +398,7 @@ body {
   align-items: center;
   padding: var(--sp-4) var(--sp-5);
   border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
 }
 
 .card-title {
@@ -495,6 +492,11 @@ body {
 .badge-amber  { background: var(--amber-soft); color: var(--amber); }
 .badge-red    { background: var(--red-soft);   color: var(--red); }
 .badge-blue   { background: var(--blue-soft);  color: var(--blue); }
+.badge-gold   { background: var(--gold-soft);  color: var(--gold); }
+
+/* Card top-border accents for warning/critical state */
+.card-top-gold { border-top: 2px solid var(--gold); }
+.card-top-red  { border-top: 2px solid var(--red); }
 
 /* Category badges */
 .cat-badge-linen   { background: var(--blue-soft);              color: var(--blue); }
