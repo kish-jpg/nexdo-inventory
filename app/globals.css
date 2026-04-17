@@ -420,6 +420,20 @@ body {
   margin-bottom: var(--sp-4);
 }
 
+.dashboard-row-6040 {
+  display: grid;
+  grid-template-columns: 60fr 40fr;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.dashboard-row-4060 {
+  display: grid;
+  grid-template-columns: 40fr 60fr;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
 /* ─── Data Table ────────────────────────────────────────────────────────── */
 .table-wrap {
   background: var(--surface);
@@ -494,8 +508,8 @@ body {
 .badge-gold   { background: var(--gold-soft);  color: var(--gold); }
 
 /* Card top-border accents for warning/critical state */
-.card-top-gold { border-top: 2px solid var(--gold); }
-.card-top-red  { border-top: 2px solid var(--red); }
+.card-top-gold { box-shadow: inset 0 2px 0 var(--gold); }
+.card-top-red  { box-shadow: inset 0 2px 0 var(--red); }
 
 /* Category badges */
 .cat-badge-linen   { background: var(--blue-soft);              color: var(--blue); }
@@ -897,7 +911,7 @@ select.form-input option {
 
 /* ─── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
-  .two-col  { grid-template-columns: 1fr; }
+  .two-col, .dashboard-row-6040, .dashboard-row-4060 { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
 }
 

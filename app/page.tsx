@@ -277,7 +277,7 @@ export default function Dashboard() {
           </div>
 
           {/* Row 1: Demand Chart + Reorder List */}
-          <div style={{ display: 'grid', gridTemplateColumns: '60fr 40fr', gap: '16px', marginBottom: '16px' }}>
+          <div className="dashboard-row-6040">
 
             {/* Demand Chart */}
             <div className="glass-card">
@@ -354,7 +354,7 @@ export default function Dashboard() {
           </div>
 
           {/* Row 2: Category Health + Recent Activity */}
-          <div style={{ display: 'grid', gridTemplateColumns: '40fr 60fr', gap: '16px', marginBottom: '16px' }}>
+          <div className="dashboard-row-4060">
 
             {/* Category Health */}
             <div className="glass-card">
