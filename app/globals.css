@@ -422,10 +422,9 @@ body {
 
 /* ─── Data Table ────────────────────────────────────────────────────────── */
 .table-wrap {
-  background: var(--card-bg);
+  background: var(--surface);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  backdrop-filter: blur(12px);
   overflow: hidden;
   box-shadow: var(--shadow);
 }
@@ -568,11 +567,10 @@ body {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  background: var(--card-bg);
+  background: var(--surface);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 6px 14px;
-  backdrop-filter: blur(8px);
   transition: border-color var(--dur-normal) ease;
 }
 
