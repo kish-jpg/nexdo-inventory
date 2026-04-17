@@ -134,9 +134,9 @@ interface Candidate {
 
 const CANDIDATES: Candidate[] = [
   // ── OpenRouter (GEMMA_4_KEY) — Gemma models via openrouter.ai ──────────────
-  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-27b-it' },
-  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-12b-it' },
-  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-4b-it'  },
+  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-4-31b-it:free' },
+  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-27b-it'      },
+  { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-4b-it'       },
   // ── Google AI (GEMINI_API_KEY) — each model has its own quota bucket ────────
   { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.0-flash'      },
   { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.0-flash-lite'  },
