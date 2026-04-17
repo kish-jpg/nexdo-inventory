@@ -95,6 +95,8 @@
 [data-theme="light"] {
   --bg:           #f5f2f1;   /* warm off-white; was cold #f2f3f7           */
   --bg-sub:       #fffdfb;   /* barely warm white; was pure #ffffff         */
+  --surface:        #ffffff;
+  --surface-raised: #f5f2f1;
   --sidebar-bg:   #fffdfb;
   --card-bg:      rgba(255,255,255,0.90);
   --card-border:  rgba(0, 0, 0, 0.07);
@@ -107,6 +109,8 @@
   --text-subtle:  #9ca3af;
   --border:       #e8e2e2;   /* warm light border; was cold #e5e7eb          */
 
+  --gold:       #8A6A1A;   /* darkened for light-mode WCAG contrast */
+  --gold-soft:  rgba(138, 106, 26, 0.10);
   --red-soft:     rgba(227, 25, 55, 0.08);
   --red-row:      rgba(227, 25, 55, 0.04);
   --green-soft:   rgba(34, 197, 94, 0.10);
@@ -799,7 +803,7 @@ select.form-input option {
 
 .stock-preview-num {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 32px; /* --fs-kpi(36) - 4 = 32px */
+  font-size: calc(var(--fs-kpi) - 16px); /* slightly smaller than KPI */
   font-weight: 600;
   color: var(--text);
   line-height: 1;
