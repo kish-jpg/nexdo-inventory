@@ -143,10 +143,10 @@ const CANDIDATES: Candidate[] = [
   { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'qwen/qwen-2.5-7b-instruct:free'         },
   { envVar: 'GEMMA_4_KEY', provider: 'openrouter', model: 'google/gemma-3-27b-it:free'              },
   // ── Google AI (GEMINI_API_KEY) — last resort, each model own quota bucket ──
-  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.0-flash'      },
-  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.0-flash-lite'  },
-  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-1.5-flash'       },
-  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-1.5-flash-8b'    },
+  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.0-flash'         },
+  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.0-flash-lite'     },
+  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-2.5-flash-preview-04-17' },
+  { envVar: 'GEMINI_API_KEY', provider: 'google', model: 'gemini-1.5-flash'          },
 ];
 
 // ─── OpenRouter stream (OpenAI-compatible SSE) ────────────────────────────────
