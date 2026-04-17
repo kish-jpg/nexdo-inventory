@@ -276,49 +276,26 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Row 1: Category Health + Reorder List */}
-          <div className="two-col" style={{ marginBottom: '16px' }}>
+          {/* Row 1: Demand Chart + Reorder List */}
+          <div style={{ display: 'grid', gridTemplateColumns: '60fr 40fr', gap: '16px', marginBottom: '16px' }}>
 
-            {/* Category Health */}
+            {/* Demand Chart */}
             <div className="glass-card">
               <div className="card-header">
-                <span className="card-title">Stock Health by Category</span>
+                <span className="card-title">7-Day Demand Forecast</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>Opera PMS</span>
               </div>
-              <div className="card-body">
-                {categoryHealth.length === 0 ? (
-                  <div className="empty-state-sub mono">No data available</div>
-                ) : (
-                  categoryHealth.map(c => {
-                    const pct = Math.min(100, Math.round(c.stockPct));
-                    return (
-                      <div key={c.name} className="bar-item">
-                        <div className="bar-label">
-                          <span>
-                            <strong>{c.name}</strong>
-                            <span style={{ marginLeft: 6, color: 'var(--text-subtle)', fontSize: '11px' }}>
-                              {c.count} items
-                            </span>
-                          </span>
-                          <span className="mono" style={{ fontSize: '11px', color: barColor(pct) }}>
-                            {pct}%
-                          </span>
-                        </div>
-                        <div className="bar-track">
-                          <div className={`bar-fill ${barClass(pct)}`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+              <div className="card-body" style={{ height: '260px' }}>
+                <Bar data={demandData as any} options={demandOptions as any} />
               </div>
             </div>
 
             {/* Reorder List */}
-            <div className="glass-card">
+            <div className={`glass-card${reorderList.length > 0 ? ' card-top-gold' : ''}`}>
               <div className="card-header">
                 <span className="card-title">Reorder List</span>
                 {reorderList.length > 0 && (
-                  <span className="badge badge-red">{reorderList.length} items</span>
+                  <span className="badge badge-gold">{reorderList.length} items</span>
                 )}
               </div>
               {reorderList.length === 0 ? (
@@ -358,7 +335,7 @@ export default function Dashboard() {
                         <td className="text-right mono" style={{ color: 'var(--text-muted)' }}>
                           {item.targetStock}
                         </td>
-                        <td className="text-right mono" style={{ color: 'var(--blue)', fontWeight: 600, paddingRight: '20px' }}>
+                        <td className="text-right mono" style={{ color: 'var(--gold)', fontWeight: 600, paddingRight: '20px' }}>
                           {item.reorderQty ?? (item.targetStock - item.stock)}
                         </td>
                       </tr>
@@ -368,7 +345,7 @@ export default function Dashboard() {
               )}
               {reorderList.length > 0 && (
                 <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
-                  <Link href="/inventory" style={{ fontSize: '11px', color: 'var(--blue)', textDecoration: 'none', fontWeight: 600, fontFamily: 'JetBrains Mono' }}>
+                  <Link href="/inventory" style={{ fontSize: '11px', color: 'var(--gold)', textDecoration: 'none', fontWeight: 600, fontFamily: 'JetBrains Mono' }}>
                     VIEW ALL IN INVENTORY →
                   </Link>
                 </div>
@@ -376,17 +353,40 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Row 2: Demand Chart + Recent Activity */}
-          <div className="two-col">
+          {/* Row 2: Category Health + Recent Activity */}
+          <div style={{ display: 'grid', gridTemplateColumns: '40fr 60fr', gap: '16px', marginBottom: '16px' }}>
 
-            {/* Demand Chart */}
+            {/* Category Health */}
             <div className="glass-card">
               <div className="card-header">
-                <span className="card-title">7-Day Demand Forecast</span>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>Opera PMS</span>
+                <span className="card-title">Stock Health by Category</span>
               </div>
-              <div className="card-body" style={{ height: '260px' }}>
-                <Bar data={demandData as any} options={demandOptions as any} />
+              <div className="card-body">
+                {categoryHealth.length === 0 ? (
+                  <div className="empty-state-sub mono">No data available</div>
+                ) : (
+                  categoryHealth.map(c => {
+                    const pct = Math.min(100, Math.round(c.stockPct));
+                    return (
+                      <div key={c.name} className="bar-item">
+                        <div className="bar-label">
+                          <span>
+                            <strong>{c.name}</strong>
+                            <span style={{ marginLeft: 6, color: 'var(--text-subtle)', fontSize: '11px' }}>
+                              {c.count} items
+                            </span>
+                          </span>
+                          <span className="mono" style={{ fontSize: '11px', color: barColor(pct) }}>
+                            {pct}%
+                          </span>
+                        </div>
+                        <div className="bar-track">
+                          <div className={`bar-fill ${barClass(pct)}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
