@@ -119,11 +119,22 @@ ${supplierText}`;
   }
 }
 
-// ─── Key registry — tried in order until one works ───────────────────────────
+// ─── Candidate list — tried in order until one works ─────────────────────────
+// Each entry is an independent (key × model) pair. Different models draw from
+// different quota buckets, so exhausting gemini-2.0-flash doesn't block the
+// 1.5-flash or flash-8b pools.
 
-const API_KEYS = [
-  { envVar: 'GEMMA_4_KEY',    model: 'gemini-2.0-flash' },
-  { envVar: 'GEMINI_API_KEY', model: 'gemini-2.0-flash' },
+const CANDIDATES = [
+  // Primary key, fastest model first
+  { envVar: 'GEMMA_4_KEY',    model: 'gemini-2.0-flash'      },
+  { envVar: 'GEMMA_4_KEY',    model: 'gemini-2.0-flash-lite'  },
+  { envVar: 'GEMMA_4_KEY',    model: 'gemini-1.5-flash'       },
+  { envVar: 'GEMMA_4_KEY',    model: 'gemini-1.5-flash-8b'    },
+  // Backup key, same model order
+  { envVar: 'GEMINI_API_KEY', model: 'gemini-2.0-flash'      },
+  { envVar: 'GEMINI_API_KEY', model: 'gemini-2.0-flash-lite'  },
+  { envVar: 'GEMINI_API_KEY', model: 'gemini-1.5-flash'       },
+  { envVar: 'GEMINI_API_KEY', model: 'gemini-1.5-flash-8b'    },
 ] as const;
 
 // ─── Attempt one streaming call with a given key + model ──────────────────────
@@ -174,10 +185,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No messages provided' }, { status: 400 });
     }
 
-    // Resolve available keys in priority order
-    const candidates = API_KEYS
-      .map(k => ({ ...k, key: process.env[k.envVar] }))
-      .filter(k => !!k.key);
+    // Resolve available candidates (skip entries with missing env vars)
+    const candidates = CANDIDATES
+      .map(c => ({ ...c, key: process.env[c.envVar] }))
+      .filter(c => !!c.key);
 
     if (candidates.length === 0) {
       return NextResponse.json(
@@ -218,13 +229,13 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'text/plain; charset=utf-8',
             'Cache-Control': 'no-cache, no-store',
             'X-Accel-Buffering': 'no',
-            'X-AI-Key': candidate.envVar, // useful for debugging in Vercel logs
+            'X-AI-Key': `${candidate.envVar}/${candidate.model}`, // visible in Vercel logs
           },
         });
       } catch (err: any) {
         lastError = err;
-        // Log which key failed, then try the next one
-        console.warn(`[chat] ${candidate.envVar} failed: ${err.message} — trying next key`);
+        // Log which key+model failed, then try the next candidate
+        console.warn(`[chat] ${candidate.envVar}/${candidate.model} failed: ${err.message} — trying next candidate`);
       }
     }
 
