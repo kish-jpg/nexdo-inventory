@@ -119,15 +119,53 @@ ${supplierText}`;
   }
 }
 
+// ─── Key registry — tried in order until one works ───────────────────────────
+
+const API_KEYS = [
+  { envVar: 'GEMMA_4_KEY',    model: 'gemini-2.0-flash' },
+  { envVar: 'GEMINI_API_KEY', model: 'gemini-2.0-flash' },
+] as const;
+
+// ─── Attempt one streaming call with a given key + model ──────────────────────
+
+async function tryStream(
+  apiKey: string,
+  modelName: string,
+  systemPrompt: string,
+  history: { role: string; parts: { text: string }[] }[],
+  lastUserMessage: string,
+): Promise<ReadableStream<Uint8Array>> {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    systemInstruction: systemPrompt,
+  });
+
+  const chat = model.startChat({ history });
+  const result = await chat.sendMessageStream(lastUserMessage);
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of result.stream) {
+          const text = chunk.text();
+          if (text) controller.enqueue(new TextEncoder().encode(text));
+        }
+      } catch (err: any) {
+        controller.enqueue(
+          new TextEncoder().encode(`\n\n[Stream error: ${err.message}]`)
+        );
+      } finally {
+        controller.close();
+      }
+    },
+  });
+}
+
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
-    }
-
     const body = await req.json();
     const messages: { role: 'user' | 'model'; content: string }[] = body.messages ?? [];
     const role: string = body.role ?? 'radisson';
@@ -136,56 +174,65 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No messages provided' }, { status: 400 });
     }
 
-    // Build context (runs in parallel with Gemini init)
+    // Resolve available keys in priority order
+    const candidates = API_KEYS
+      .map(k => ({ ...k, key: process.env[k.envVar] }))
+      .filter(k => !!k.key);
+
+    if (candidates.length === 0) {
+      return NextResponse.json(
+        { error: 'No API key configured. Add GEMMA_4_KEY or GEMINI_API_KEY in Vercel env vars.' },
+        { status: 500 }
+      );
+    }
+
+    // Build inventory context
     const contextBlock = await buildInventoryContext();
-    const systemPrompt = SYSTEM_BASE + contextBlock + `\n\nUSER ROLE: ${role} (${role === 'admin' ? 'full access' : role === 'nexdo' ? 'NexDo staff' : 'Radisson housekeeping'})`;
+    const systemPrompt =
+      SYSTEM_BASE +
+      contextBlock +
+      `\n\nUSER ROLE: ${role} (${
+        role === 'admin' ? 'full access' : role === 'nexdo' ? 'NexDo staff' : 'Radisson housekeeping'
+      })`;
 
-    // Gemini setup
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: systemPrompt,
-    });
-
-    // Convert history (all messages except last) to Gemini format
     const history = messages.slice(0, -1).map(m => ({
       role: m.role,
       parts: [{ text: m.content }],
     }));
-
     const lastUserMessage = messages[messages.length - 1].content;
 
-    // Start streaming chat
-    const chat = model.startChat({ history });
-    const result = await chat.sendMessageStream(lastUserMessage);
+    // Try each key in order — fall through to next on failure
+    let lastError: Error | null = null;
+    for (const candidate of candidates) {
+      try {
+        const stream = await tryStream(
+          candidate.key!,
+          candidate.model,
+          systemPrompt,
+          history,
+          lastUserMessage,
+        );
 
-    // Pipe Gemini stream → Response stream
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of result.stream) {
-            const text = chunk.text();
-            if (text) {
-              controller.enqueue(new TextEncoder().encode(text));
-            }
-          }
-        } catch (err: any) {
-          controller.enqueue(
-            new TextEncoder().encode(`\n\n[Error reading response: ${err.message}]`)
-          );
-        } finally {
-          controller.close();
-        }
-      },
-    });
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store',
+            'X-Accel-Buffering': 'no',
+            'X-AI-Key': candidate.envVar, // useful for debugging in Vercel logs
+          },
+        });
+      } catch (err: any) {
+        lastError = err;
+        // Log which key failed, then try the next one
+        console.warn(`[chat] ${candidate.envVar} failed: ${err.message} — trying next key`);
+      }
+    }
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store',
-        'X-Accel-Buffering': 'no', // disable Nginx buffering for streaming
-      },
-    });
+    // All keys exhausted
+    return NextResponse.json(
+      { error: `All API keys failed. Last error: ${lastError?.message}` },
+      { status: 502 }
+    );
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
