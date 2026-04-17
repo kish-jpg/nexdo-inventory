@@ -68,6 +68,7 @@ const ITEMS = [
   { code: 'RADR-PENC01-U', name: 'Pencils',                                cat: 'Amenities',    sub: 'Amenity Kits',  unit: 'CT/1000',  stock: 1,   target: 0,    reorderPt: null, reorderQty: null, supplier: 'Astro'   },
   { code: 'RADR-SHOE11-E', name: 'Shoe Shine Sponges',                     cat: 'Amenities',    sub: 'Amenity Kits',  unit: 'CT/300',   stock: 8,   target: 0,    reorderPt: null, reorderQty: null, supplier: 'Astro'   },
   { code: 'RADR-SHOE12-E', name: 'Velour Slippers',                        cat: 'Amenities',    sub: 'Amenity Kits',  unit: 'CT/100',   stock: 45,  target: 0,    reorderPt: null, reorderQty: null, supplier: 'Astro'   },
+  { code: 'RADR-LGBG01-E', name: 'Radisson Red Logo Bag',                 cat: 'Amenities',    sub: 'Amenity Kits',  unit: 'CT/250',   stock: 0,   target: 0,    reorderPt: null, reorderQty: null, cost: 45.00, supplier: 'Astro'   },
   // AMENITIES - Toilet Paper
   { code: 'PS1001', name: 'Premium Toilet Roll 2Ply 400sh',                cat: 'Amenities',    sub: 'Toilet Paper',  unit: 'CT/48',    stock: 12,  target: 660,  reorderPt: 330,  reorderQty: 300, cost: 30.75, supplier: 'BUNZL' },
   { code: 'PS1008', name: 'Premium Facial Tissue Cube 2Ply',               cat: 'Amenities',    sub: 'Toiletries',    unit: 'CT/24',    stock: 11,  target: 0,    reorderPt: null, reorderQty: null, cost: 28.75, supplier: 'BUNZL' },

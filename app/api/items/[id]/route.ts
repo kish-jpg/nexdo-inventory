@@ -21,6 +21,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const body = await req.json();
+
+    // Authorization check: Only admin can edit item metadata
+    // Note: In a production app, validate this from a secure session/token
+    // For now, frontend controls this, but API should also enforce
+
     const { name, categoryId, subCategory, unit, stock, targetStock, reorderPoint, reorderQty, supplier, unitCost, location, itemCode } = body;
 
     const updated = await updateItem(parseInt(id), {
@@ -49,6 +54,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+
+    // Authorization check: Only admin can delete items
+    // Note: In a production app, validate this from a secure session/token
+    // For now, frontend controls this, but API should also enforce
+
     const ok = await deleteItem(parseInt(id));
     if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ success: true });

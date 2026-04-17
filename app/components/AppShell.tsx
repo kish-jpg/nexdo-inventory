@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/app/components/AuthProvider';
+import ChatPanel from '@/app/components/ChatPanel';
 
 // ─── Inline SVG Icons ─────────────────────────────────────────────────────────
 
@@ -97,6 +98,15 @@ const LogoutIcon = () => (
   </svg>
 );
 
+const ChatIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="10" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/>
+  </svg>
+);
+
 // ─── Nav Items ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -115,9 +125,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [mounted, setMounted] = useState(false);
-
-  // Don't show the shell on the login page
-  if (pathname === '/login') return <>{children}</>;
+  const [chatOpen, setChatOpen] = useState(false);
 
   // Hydrate theme from localStorage
   useEffect(() => {
@@ -137,6 +145,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
     localStorage.setItem('nexdo-theme', theme);
   }, [theme, mounted]);
+
+  // Don't show the shell on the login page
+  if (pathname === '/login') return <>{children}</>;
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
@@ -185,8 +196,37 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* Footer: theme toggle + logout */}
+        {/* Footer: AI chat + theme toggle + logout */}
         <div className="sidebar-footer">
+          {/* AI Chat toggle */}
+          <button
+            className="sidebar-nav-item"
+            onClick={() => setChatOpen(o => !o)}
+            style={{
+              justifyContent: collapsed ? 'center' : undefined,
+              color: chatOpen ? 'var(--red)' : undefined,
+              background: chatOpen ? 'rgba(227,25,55,0.08)' : undefined,
+            }}
+            title="Inventory AI Assistant"
+          >
+            <ChatIcon />
+            {!collapsed && (
+              <span className="sidebar-nav-label" style={{ fontSize: '12px' }}>
+                AI Assistant
+              </span>
+            )}
+            {!collapsed && chatOpen && (
+              <span style={{
+                marginLeft: 'auto',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: 'var(--red)',
+                flexShrink: 0,
+              }} />
+            )}
+          </button>
+
           <button
             className="sidebar-nav-item"
             onClick={toggleTheme}
@@ -231,6 +271,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main className="main-content">
         {children}
       </main>
+
+      {/* AI Chat Panel — floats over all pages */}
+      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }

@@ -450,33 +450,18 @@ export default function Dashboard() {
           <div className="empty-state-icon">📦</div>
           <div className="empty-state-title">No inventory data yet</div>
           <div className="empty-state-sub" style={{ marginBottom: '24px' }}>
-            Seed the database with Radisson inventory data to get started.
+            Seed the database to populate your inventory and get started with live tracking.
           </div>
           <a
-            href="/api/seed"
+            href="/api/reseed"
             className="btn btn-primary"
-            style={{ textDecoration: 'none', display: 'inline-flex' }}
+            style={{ textDecoration: 'none', fontFamily: 'JetBrains Mono', letterSpacing: '0.04em' }}
           >
             Seed Inventory Data
           </a>
         </div>
       )}
 
-      {/* Footer */}
-      <div style={{
-        marginTop: '32px',
-        paddingTop: '16px',
-        borderTop: '1px solid var(--border)',
-        fontFamily: 'JetBrains Mono',
-        fontSize: '10px',
-        color: 'var(--text-subtle)',
-        letterSpacing: '0.06em',
-        display: 'flex',
-        justifyContent: 'space-between',
-      }}>
-        <span>NEXDO HOSPITALITY · RADISSON RED AUCKLAND</span>
-        <span>{currentTime}</span>
-      </div>
     </div>
   );
 }

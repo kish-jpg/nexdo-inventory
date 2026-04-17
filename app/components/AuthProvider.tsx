@@ -79,8 +79,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isRadisson:  role === 'radisson',
     canSeeCosts: role === 'admin',
     canSeeNexDo: role === 'admin' || role === 'nexdo',
-    canEditMeta: role === 'admin',
-    canDelete:   role === 'admin',
+    canEditMeta: role === 'admin', // Only admin can edit item metadata
+    canDelete:   role === 'admin', // Only admin can delete items
     login,
     logout,
   };

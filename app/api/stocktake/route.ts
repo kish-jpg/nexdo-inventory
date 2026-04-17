@@ -7,7 +7,7 @@ import { applyStocktake } from '@/lib/sheets';
 
 const STOCKTAKE_APR_2026 = [
   // Vendor dispenser products
-  { code: 'PS1001',       qty: 12 }, // Premium Toilet Roll 2Ply — 12 cartons
+  { code: 'PS1001',       qty: 8  }, // Premium Toilet Roll 2Ply — 8 cartons
   { code: 'PS1008',       qty: 11 }, // Premium Facial Tissue Cube — 11 cartons
   { code: 'BW148430',     qty: 1  }, // Xpress® Multifold Hand Towel — 1 carton
   { code: 'BW2306898',    qty: 2  }, // Soft Mini Jumbo Toilet Roll — 2 cartons
@@ -15,13 +15,14 @@ const STOCKTAKE_APR_2026 = [
   { code: 'SUSSTW140',    qty: 0  }, // Wooden Stirrer 140mm — 0
   // Bin liners
   { code: 'BZSINGLET/ME', qty: 15 }, // Ezytie Waste Bag White Medium — 15 cartons
-  { code: 'BZ82EHD',      qty: 0  }, // Bin Liner EHD 80-82L — 0
+  { code: 'BZ82EHD',      qty: 2  }, // Bin Liner EHD 80-82L — 2 cartons
   { code: 'BZ36BLK/R',    qty: 0  }, // Bin Liner Kitchen Tidy 36L — 0
   // Amenities (counted in cartons/boxes)
-  { code: 'AM001',        qty: 34 }, // Shampoo — 34 cartons
-  { code: 'AM003',        qty: 33 }, // Body Wash — 33 cartons
+  { code: 'AM001',        qty: 20 }, // Shampoo — 20 cartons
+  { code: 'AM003',        qty: 15 }, // Body Wash — 15 cartons
   { code: 'AM004',        qty: 30 }, // Soap Bars (Hand Wash) — 30 boxes
   // Beverages
+  { code: 'C001',         qty: 180 }, // Coffee Capsules (Arabica) — 180 units
   { code: 'C002',         qty: 12 }, // Decaf Capsules — 12 boxes
   { code: 'C003',         qty: 30 }, // Green Tea — 30 packets
   { code: 'C004',         qty: 20 }, // Peppermint Tea — 20 packets
