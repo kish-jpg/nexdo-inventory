@@ -28,7 +28,7 @@
   --fs-lg:   15px;   /* modal titles, sidebar logo                    */
   --fs-xl:   22px;   /* page title at mobile                          */
   --fs-2xl:  28px;   /* page title                                    */
-  --fs-kpi:  36px;   /* KPI values                                    */
+  --fs-kpi:  48px;   /* KPI values — large visual anchor                  */
 
   /* ── Border radii ──────────────────────────────────────────────── */
   --radius-xs:   3px;     /* scrollbar, progress fills               */
@@ -52,20 +52,22 @@
   --dur-sidebar:   0.22s;
   --dur-bar:       0.40s;
 
-  /* ── Colours: Dark (default) ───────────────────────────────────── */
-  --bg:           #0a0a0a;
-  --bg-sub:       #111111;
-  --sidebar-bg:   #0d0d0d;
-  --card-bg:      rgba(255,255,255,0.03);
-  --card-border:  rgba(255,255,255,0.07);
+  /* ── Colours: Dark (default) — Crimson Command ─────────────────── */
+  --bg:           #08080E;   /* deep near-black                            */
+  --bg-sub:       #10101A;   /* modal / card sub-bg                        */
+  --sidebar-bg:   #0C0C14;   /* sidebar separation from main bg            */
+  --surface:      #10101A;   /* card base                                  */
+  --surface-raised: #171724; /* elevated panels, card headers              */
+  --card-bg:      #10101A;   /* kept for backward compat                   */
+  --card-border:  rgba(255,255,255,0.08);
   --hover-bg:     rgba(255,255,255,0.04);
-  --input-bg:     rgba(255,255,255,0.05);
-  --input-border: rgba(255,255,255,0.10);
+  --input-bg:     rgba(255,255,255,0.06);
+  --input-border: rgba(255,255,255,0.12);
 
-  --text:         #f0f0f0;
-  --text-muted:   #6b6b7b;
-  --text-subtle:  #3f3f4a;
-  --border:       #222228;
+  --text:         #F0EEE8;   /* warm off-white                             */
+  --text-muted:   #8A8799;   /* secondary labels                           */
+  --text-subtle:  #50505A;   /* timestamps, item codes                     */
+  --border:       rgba(255,255,255,0.07);
 
   /* Brand & status */
   --red:          #E31937;
@@ -77,6 +79,8 @@
   --amber-soft:   rgba(245, 158, 11, 0.12);
   --blue:         #3B82F6;
   --blue-soft:    rgba(59, 130, 246, 0.12);
+  --gold:         #C9A84C;
+  --gold-soft:    rgba(201, 168, 76, 0.12);
   --purple-soft:  rgba(168, 85, 247, 0.12);
   --teal-soft:    rgba(20, 184, 166, 0.12);
 
@@ -87,21 +91,21 @@
   --transition:   all var(--dur-normal) ease;
 }
 
-/* ─── Theme: Light ──────────────────────────────────────────────────────── */
+/* ─── Theme: Light — Crimson Command ───────────────────────────────────── */
 [data-theme="light"] {
-  --bg:           #f2f3f7;
-  --bg-sub:       #ffffff;
-  --sidebar-bg:   #ffffff;
+  --bg:           #f5f2f1;   /* warm off-white; was cold #f2f3f7           */
+  --bg-sub:       #fffdfb;   /* barely warm white; was pure #ffffff         */
+  --sidebar-bg:   #fffdfb;
   --card-bg:      rgba(255,255,255,0.90);
   --card-border:  rgba(0, 0, 0, 0.07);
   --hover-bg:     rgba(0, 0, 0, 0.03);
   --input-bg:     #ffffff;
   --input-border: rgba(0, 0, 0, 0.14);
 
-  --text:         #111318;
-  --text-muted:   #6b7280;
+  --text:         #0f0c0c;   /* warm near-black for light mode text          */
+  --text-muted:   #5f5f6e;   /* warmed equivalent of dark mode muted         */
   --text-subtle:  #9ca3af;
-  --border:       #e5e7eb;
+  --border:       #e8e2e2;   /* warm light border; was cold #e5e7eb          */
 
   --red-soft:     rgba(227, 25, 55, 0.08);
   --red-row:      rgba(227, 25, 55, 0.04);
