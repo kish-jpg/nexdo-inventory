@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Modal from '@/app/components/Modal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,8 +39,7 @@ function fmtDate(s: string) {
 
 const Spinner = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-    style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
-    <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    className="is-spinning-icon" aria-hidden style={{ flexShrink: 0 }}>
     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
   </svg>
 );
@@ -73,11 +73,10 @@ function AdjustModal({ item, onClose, onDone }: { item: NexDoItem; onClose: () =
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} labelledBy="nx-adjust-title" maxWidth={420}>
         <div className="modal-header">
-          <span className="modal-title">Adjust Stock — {item.name}</span>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <span className="modal-title" id="nx-adjust-title">Adjust Stock — {item.name}</span>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <form onSubmit={submit}>
           <div className="stock-preview">
@@ -111,8 +110,7 @@ function AdjustModal({ item, onClose, onDone }: { item: NexDoItem; onClose: () =
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -144,11 +142,10 @@ function AddItemModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} labelledBy="nx-add-title" maxWidth={520}>
         <div className="modal-header">
-          <span className="modal-title">Add NexDo Item</span>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <span className="modal-title" id="nx-add-title">Add NexDo Item</span>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <form onSubmit={submit}>
           <div className="form-two-col">
@@ -205,7 +202,7 @@ function AddItemModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
             <label className="form-label">Notes</label>
             <input className="form-input" placeholder="Usage notes, location..." value={form.notes} onChange={set('notes')} />
           </div>
-          {error && <div className="error-box">{error}</div>}
+          {error && <div className="error-box" role="alert">{error}</div>}
           <div className="form-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -213,8 +210,7 @@ function AddItemModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -303,7 +299,7 @@ export default function NexDoPage() {
   });
 
   return (
-    <div className="page-wrap">
+    <div className="page-wrap theme-nexdo">
       {(adjustItem || showAdd) && (
         adjustItem
           ? <AdjustModal item={adjustItem} onClose={() => setAdjustItem(null)} onDone={() => { setAdjustItem(null); loadItems(); loadStats(); }} />
@@ -314,10 +310,11 @@ export default function NexDoPage() {
       <div className="page-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <div style={{ width: 26, height: 26, background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <div className="nx-mark">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             </div>
             <h1 className="page-title" style={{ margin: 0 }}>NexDo Inventory</h1>
+            <span className="brand-chip brand-chip--ink">NexDo</span>
           </div>
           <p className="page-sub">Cleaning equipment & supplies — NexDo managed</p>
         </div>
@@ -331,19 +328,19 @@ export default function NexDoPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+      <div className="tab-bar" role="tablist" aria-label="NexDo sections">
         {([
           { id: 'overview', label: 'Overview' },
           { id: 'items',    label: `Inventory${stats ? ` (${stats.kpis.total})` : ''}` },
           { id: 'restock',  label: `Restock Request${restockItems.length ? ` · ${restockItems.length}` : ''}` },
         ] as const).map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: '9px 18px', border: 'none', cursor: 'pointer', background: 'none',
-            borderBottom: tab === t.id ? '2px solid #0ea5e9' : '2px solid transparent',
-            color: tab === t.id ? 'var(--text)' : 'var(--text-muted)',
-            fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: tab === t.id ? 600 : 400,
-            transition: 'var(--transition)', marginBottom: -1,
-          }}>{t.label}</button>
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className="tab"
+          >{t.label}</button>
         ))}
       </div>
 
@@ -351,8 +348,8 @@ export default function NexDoPage() {
       {tab === 'overview' && (
         <div>
           {/* KPIs */}
-          <div className="kpi-grid" style={{ marginBottom: 24 }}>
-            <div className="kpi-card" style={{ borderLeftColor: '#0ea5e9' }}>
+          <div className="kpi-grid stagger-in" style={{ marginBottom: 24 }}>
+            <div className="kpi-card kpi-blue">
               <div className="kpi-label">Total Items</div>
               <div className="kpi-value">{stats?.kpis.total ?? '—'}</div>
               <div className="kpi-trend">across 4 categories</div>
@@ -427,8 +424,8 @@ export default function NexDoPage() {
           {/* Toolbar */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <div className="search-wrap" style={{ flex: 1, minWidth: 200 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)', flexShrink: 0 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input placeholder="Search items or code..." value={search} onChange={e => setSearch(e.target.value)} />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input aria-label="Search items or code" placeholder="Search items or code..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <div className="cat-filters">
               {CATEGORIES.map(c => (
@@ -528,7 +525,7 @@ export default function NexDoPage() {
                         <td><span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, background: CAT_BG[item.category] ?? 'var(--hover-bg)', color: CAT_COLORS[item.category] ?? 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 600, textTransform: 'uppercase' }}>{item.category}</span></td>
                         <td className="text-right mono" style={{ color: item.stock === 0 ? 'var(--red)' : 'var(--amber)', fontWeight: 600 }}>{item.stock}</td>
                         <td className="text-right mono" style={{ color: 'var(--text-muted)' }}>{item.reorderPoint}</td>
-                        <td className="text-right mono" style={{ color: '#0ea5e9', fontWeight: 600 }}>{item.reorderQty} {item.unit}</td>
+                        <td className="text-right mono" style={{ color: 'var(--red)', fontWeight: 600 }}>{item.reorderQty} {item.unit}</td>
                         <td className="text-right mono">{item.unitCost ? fmtCurrency(item.unitCost * item.reorderQty) : '—'}</td>
                       </tr>
                     ))}

@@ -191,44 +191,25 @@ export default function Dashboard() {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <span style={{
-              background: 'var(--red)',
-              color: 'white',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: '10px',
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              padding: '3px 8px',
-              borderRadius: '4px',
-            }}>
-              Radisson RED
-            </span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Auckland
-            </span>
+          <div className="header-row">
+            <span className="brand-chip">Radisson RED</span>
+            <span className="meta-label">Auckland</span>
           </div>
           <div className="page-title">DASHBOARD</div>
           <div className="page-sub">Sincerely Laundry — Order by 09:00</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div className="header-actions">
           <div className="status-indicator">
             <div className="pulse-dot" />
             <span style={{ color: 'var(--green)' }}>OPERATIONAL</span>
           </div>
-          <span style={{ fontFamily: 'JetBrains Mono', fontSize: '11px', color: 'var(--text-muted)' }}>
+          <span className="meta-label" style={{ textTransform: 'none' }}>
             {currentTime}
           </span>
           <button
             onClick={fetchDashboard}
             aria-label="Refresh dashboard"
-            style={{
-              background: 'none', border: '1px solid var(--border)',
-              color: 'var(--text-muted)', borderRadius: '6px',
-              padding: '5px 10px', cursor: 'pointer', fontSize: '13px',
-              transition: 'all 0.15s',
-            }}
+            className={`icon-btn${loading ? ' is-spinning' : ''}`}
           >
             ↻
           </button>
@@ -242,12 +223,23 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Loading */}
+      {/* Loading skeleton — mirrors the final layout to prevent layout shift */}
       {loading && (
-        <div className="empty-state">
-          <div className="empty-state-icon">⋯</div>
-          <div className="empty-state-sub mono" style={{ letterSpacing: '0.1em' }}>LOADING LIVE DATA</div>
-        </div>
+        <>
+          <div className="kpi-grid" aria-hidden>
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="kpi-card">
+                <span className="skel-line" style={{ width: '45%' }} />
+                <span className="skel-line skel-kpi-value" />
+              </div>
+            ))}
+          </div>
+          <div className="dashboard-row-6040" aria-hidden>
+            <div className="glass-card" style={{ height: 320 }} />
+            <div className="glass-card" style={{ height: 320 }} />
+          </div>
+          <span className="sr-only" role="status">Loading live data</span>
+        </>
       )}
 
       {/* Error */}
@@ -261,8 +253,8 @@ export default function Dashboard() {
       {/* Content */}
       {!loading && kpis && (
         <>
-          {/* KPI Strip */}
-          <div className="kpi-grid">
+          {/* KPI Strip — stagger on first paint */}
+          <div className="kpi-grid stagger-in">
             {[
               { label: 'Items Tracked', value: kpis.total,        color: 'kpi-blue' },
               { label: 'Stock OK',      value: kpis.green,        color: 'kpi-green' },
@@ -277,7 +269,7 @@ export default function Dashboard() {
           </div>
 
           {/* Row 1: Demand Chart + Reorder List */}
-          <div className="dashboard-row-6040">
+          <div className="dashboard-row-6040 stagger-in">
 
             {/* Demand Chart */}
             <div className="glass-card">
@@ -354,7 +346,7 @@ export default function Dashboard() {
           </div>
 
           {/* Row 2: Category Health + Recent Activity */}
-          <div className="dashboard-row-4060">
+          <div className="dashboard-row-4060 stagger-in">
 
             {/* Category Health */}
             <div className="glass-card">
