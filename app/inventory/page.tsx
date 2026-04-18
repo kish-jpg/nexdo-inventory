@@ -746,4 +746,37 @@ export default function InventoryPage() {
                             className="btn btn-sm btn-action-red"
                             onClick={() => openModal('delete', item)}
                             aria-label={`Delete ${item.name}`}
-                         
+                            title="Delete"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Table footer */}
+        {!loading && filtered.length > 0 && (
+          <div style={{
+            marginTop: '10px',
+            fontFamily: 'JetBrains Mono',
+            fontSize: '10px',
+            color: 'var(--text-subtle)',
+            letterSpacing: '0.06em',
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}>
+            <span>SHOWING {filtered.length} OF {items.length} ITEMS{search ? ` — "${search}"` : ''}</span>
+            <span>{red > 0 ? `${red} ITEM${red > 1 ? 'S' : ''} NEED REORDER` : 'ALL ABOVE THRESHOLD'}</span>
+          </div>
+        )}
+
+      </div>
+    </>
+  );
+}

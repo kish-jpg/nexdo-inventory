@@ -262,4 +262,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        {/* Colla
+        {/* Collapse toggle */}
+        <button
+          className="sidebar-collapse-btn"
+          onClick={() => setCollapsed(c => !c)}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+        </button>
+      </aside>
+
+      {/* Main content */}
+      <main className="main-content">
+        {children}
+      </main>
+
+      {/* AI Chat Panel — floats over all pages */}
+      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+    </div>
+  );
+}
