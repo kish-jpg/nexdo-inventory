@@ -456,7 +456,6 @@ body {
   grid-template-columns: 60fr 40fr;
   gap: var(--sp-4);
   margin-bottom: var(--sp-4);
-  align-items: start;
 }
 
 .dashboard-row-4060 {
@@ -464,7 +463,6 @@ body {
   grid-template-columns: 40fr 60fr;
   gap: var(--sp-4);
   margin-bottom: var(--sp-4);
-  align-items: start;
 }
 
 /* ─── Data Table ────────────────────────────────────────────────────────── */
@@ -929,4 +927,583 @@ select.form-input option {
 }
 .adjust-type-btn:active { transform: scale(var(--press-scale)); }
 .adjust-type-btn.at-add    { border-color: var(--green); background: var(--green-soft); color: var(--green); }
-.adjust-type-btn.at-remove { border-color: var(--red);   backgroun
+.adjust-type-btn.at-remove { border-color: var(--red);   background: var(--red-soft);   color: var(--red); }
+.adjust-type-btn.at-stock  { border-color: var(--blue);  background: var(--blue-soft);  color: var(--blue); }
+
+/* ─── Activity log ──────────────────────────────────────────────────────── */
+.activity-dot-add      { background: var(--green); }
+.activity-dot-remove   { background: var(--red); }
+.activity-dot-stocktake { background: var(--blue); }
+
+/* ─── TX type badge ─────────────────────────────────────────────────────── */
+.tx-add    { background: var(--green-soft); color: var(--green); }
+.tx-remove { background: var(--red-soft);   color: var(--red); }
+.tx-stock  { background: var(--blue-soft);  color: var(--blue); }
+
+/* ─── Loading / Skeleton ────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--hover-bg) 25%,
+    var(--card-border) 50%,
+    var(--hover-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-xs);
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Empty State ───────────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: var(--sp-14) var(--sp-6);
+  color: var(--text-muted);
+}
+
+.empty-state-icon  { font-size: 36px; margin-bottom: 14px; opacity: 0.4; }
+.empty-state-title { font-size: var(--fs-body); font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.empty-state-sub   { font-size: var(--fs-md); color: var(--text-muted); }
+
+/* ─── Utility ──────────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus visible ring */
+:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+/* ─── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .sidebar {
+    width: 52px;
+    padding: var(--sp-3) 0;
+  }
+  .sidebar-label,
+  .sidebar-section-label,
+  .sidebar-logo-text {
+    display: none;
+  }
+  .sidebar-link {
+    justify-content: center;
+    padding: var(--sp-2);
+  }
+  .sidebar-icon { margin-right: 0; }
+  .main-content { margin-left: 52px; }
+
+  .dashboard-row-6040,
+  .dashboard-row-4060,
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-3);
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .main-content {
+    padding: var(--sp-4);
+  }
+  .modal-box {
+    padding: var(--sp-5);
+  }
+  .form-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Brand chip (Radisson RED / NexDo) ─────────────────────────────────── */
+.brand-chip {
+  display: inline-flex;
+  align-items: center;
+  background: var(--red);
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px var(--sp-2);
+  border-radius: var(--radius-xs);
+  line-height: 1.3;
+}
+.brand-chip--ink {
+  background: #0A0A0A;
+  color: var(--nx-accent, #FACC15);
+}
+
+.meta-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: 6px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+/* ─── Icon button (refresh, small controls) ─────────────────────────────── */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 5px var(--sp-2);
+  cursor: pointer;
+  font-size: var(--fs-base);
+  transition:
+    background var(--dur-normal) var(--ease-out),
+    color var(--dur-normal) var(--ease-out),
+    border-color var(--dur-normal) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover { color: var(--text); background: var(--hover-bg); }
+}
+.icon-btn:active { transform: scale(var(--press-scale)); }
+.icon-btn.is-spinning { animation: icon-spin 0.9s linear infinite; }
+
+@keyframes icon-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Stagger helper (opt-in, first mount only) ─────────────────────────── */
+.stagger-in > * {
+  opacity: 0;
+  transform: translateY(14px) scale(0.98);
+  animation: stagger-in 0.6s var(--ease-out) forwards;
+}
+.stagger-in > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-in > *:nth-child(2) { animation-delay: 70ms; }
+.stagger-in > *:nth-child(3) { animation-delay: 140ms; }
+.stagger-in > *:nth-child(4) { animation-delay: 210ms; }
+.stagger-in > *:nth-child(5) { animation-delay: 280ms; }
+.stagger-in > *:nth-child(6) { animation-delay: 350ms; }
+.stagger-in > *:nth-child(7) { animation-delay: 420ms; }
+.stagger-in > *:nth-child(8) { animation-delay: 490ms; }
+
+@keyframes stagger-in {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Card hover lift (pointer devices only) ─────────────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  .kpi-card,
+  .glass-card {
+    transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+  }
+  .kpi-card:hover,
+  .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -8px rgba(0,0,0,0.12), 0 2px 6px -2px rgba(0,0,0,0.06);
+  }
+}
+
+/* ─── Critical pulse ─────────────────────────────────────────────────────── */
+@keyframes critical-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.15); }
+}
+.row-critical .status-dot,
+.status-dot.is-critical {
+  animation: critical-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-8px); }
+  40%      { transform: translateX(8px); }
+  60%      { transform: translateX(-6px); }
+  80%      { transform: translateX(4px); }
+}
+
+/* ─── Login page ─────────────────────────────────────────────────────────── */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 24px;
+}
+.login-card { width: 100%; max-width: 360px; text-align: center; }
+.login-logo {
+  width: 56px; height: 56px; border-radius: 16px;
+  background: linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 24px; color: #fff;
+  box-shadow: 0 8px 24px rgba(220,38,38,0.3);
+}
+.login-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-xs); font-weight: 700;
+  letter-spacing: 0.2em; color: var(--text-muted);
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.login-title { font-size: 22px; font-weight: 700; color: var(--text); margin: 0 0 6px; }
+.login-sub   { color: var(--text-muted); font-size: 13px; margin: 0 0 36px; }
+.login-pin-row {
+  display: flex; gap: 12px; justify-content: center; margin-bottom: 24px;
+}
+.login-pin-row.is-shaking { animation: shake 0.4s var(--ease-out); }
+.login-pin-input {
+  width: 56px; height: 64px; text-align: center;
+  font-size: 24px; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--card-bg); border-radius: 12px; color: var(--text);
+  outline: none; caret-color: transparent;
+  border: 2px solid var(--border);
+  transition: border-color var(--dur-fast) var(--ease-out),
+              box-shadow   var(--dur-fast) var(--ease-out);
+}
+.login-pin-input.has-digit {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px var(--red-soft);
+}
+.login-error {
+  background: var(--red-soft);
+  border: 1px solid rgba(220,38,38,0.3);
+  border-radius: 8px; padding: 10px 16px;
+  font-size: 13px; color: var(--red);
+  margin-bottom: 20px; font-weight: 500;
+}
+.login-btn {
+  width: 100%; padding: 13px 0; border-radius: 10px; border: none;
+  font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif;
+  letter-spacing: 0.02em; cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out),
+              background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+.login-btn:active { transform: scale(var(--press-scale)); }
+.login-btn.is-ready  { background: var(--red); color: #fff; }
+.login-btn.not-ready { background: var(--hover-bg); color: var(--text-subtle); cursor: not-allowed; }
+.login-hint { color: var(--text-subtle); font-size: 11px; margin-top: 24px; line-height: 1.5; }
+
+/* ─── Skeleton row helpers ──────────────────────────────────────────────── */
+.skel-line {
+  display: block;
+  height: 10px;
+  background: linear-gradient(
+    90deg,
+    var(--hover-bg) 25%,
+    var(--card-border) 50%,
+    var(--hover-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: var(--radius-xs);
+}
+
+.skel-kpi-value {
+  height: 34px;
+  width: 60%;
+  margin-top: var(--sp-3);
+}
+
+/* ─── NexDo theme scope ─────────────────────────────────────────────────── */
+/* Applied as a wrapper class on the /nexdo page only.                       */
+/* Overrides the Radisson RED dark tokens with NexDo light brand.            */
+.theme-nexdo {
+  --bg: #FAFAF7;
+  --bg-sub: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-raised: #F6F5EF;
+  --sidebar-bg: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --card-border: rgba(0,0,0,0.08);
+  --hover-bg: rgba(0,0,0,0.04);
+  --input-bg: #FFFFFF;
+  --input-border: rgba(0,0,0,0.14);
+
+  --text: #0A0A0A;
+  --text-muted: #5F5F60;
+  --text-subtle: #9A9A9A;
+  --border: rgba(0,0,0,0.08);
+
+  /* Remap the "primary accent" to yellow so .btn-primary, badges, etc.
+     naturally pick up the Nexdo brand without touching their classes. */
+  --red: #FACC15;
+  --red-deep: #EAB308;
+  --red-soft: rgba(250, 204, 21, 0.18);
+  --red-row:  rgba(250, 204, 21, 0.08);
+
+  --nx-accent: #FACC15;
+  --nx-accent-deep: #EAB308;
+  --nx-ink: #0A0A0A;
+
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+  --shadow-modal: 0 24px 48px rgba(0,0,0,0.16);
+
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Yellow on white fails contrast — keep on-brand primary text readable
+   by mapping "white" fills on .btn-primary to black in Nexdo. */
+.theme-nexdo .btn-primary { color: var(--nx-ink); }
+.theme-nexdo .sidebar-nav-item.active { color: var(--nx-ink); }
+.theme-nexdo .cat-btn.active { color: var(--nx-ink); }
+
+/* NexDo page header mark — black tile + yellow glyph. */
+.nx-mark {
+  width: 30px;
+  height: 30px;
+  background: var(--nx-ink);
+  color: var(--nx-accent);
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ─── Tab bar (underline-style) ─────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--sp-6);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 9px 18px;
+  border: none;
+  cursor: pointer;
+  background: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: var(--fs-base);
+  font-weight: 400;
+  margin-bottom: -1px;
+  transition:
+    border-color var(--dur-normal) var(--ease-out),
+    color var(--dur-normal) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+.tab:active { transform: scale(var(--press-scale)); }
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover { color: var(--text); }
+}
+.tab[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--red);
+  font-weight: 600;
+}
+
+/* ─── Numeric stepper (±) ───────────────────────────────────────────────── */
+.num-input {
+  display: inline-flex;
+  align-items: center;
+}
+
+.num-input__btn {
+  width: 34px;
+  height: 38px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background var(--dur-normal) var(--ease-out),
+    color var(--dur-normal) var(--ease-out),
+    border-color var(--dur-normal) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+.num-input__btn--left  { border-right: none; border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.num-input__btn--right { border-left:  none; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+@media (hover: hover) and (pointer: fine) {
+  .num-input__btn:hover { background: var(--hover-bg); color: var(--text); }
+}
+.num-input__btn:active { transform: scale(var(--press-scale)); }
+
+.num-input__field {
+  text-align: center;
+  border-radius: 0;
+  width: 64px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+}
+
+/* Spin animation (shared) */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.is-spinning-icon { animation: spin 0.8s linear infinite; }
+
+/* ─── Chat panel ────────────────────────────────────────────────────────── */
+.chat-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 380px;
+  height: 560px;
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sub);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.04);
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: chat-panel-in 0.22s var(--ease-out) both;
+}
+
+@keyframes chat-panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+@keyframes chat-dot {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+  40%           { transform: scale(1);   opacity: 1; }
+}
+
+.chat-icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chat-icon-btn:hover { background: var(--hover-bg); color: var(--text); }
+}
+.chat-icon-btn:active { transform: scale(var(--press-scale)); }
+
+.chat-quick-prompt {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+  color: var(--text);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.4;
+  transition:
+    background var(--dur-normal) var(--ease-out),
+    border-color var(--dur-normal) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chat-quick-prompt:hover {
+    background: var(--red-soft);
+    border-color: rgba(227,25,55,0.25);
+  }
+}
+.chat-quick-prompt:active { transform: scale(0.99); }
+
+[data-theme="light"] .chat-quick-prompt { background: rgba(0,0,0,0.02); }
+
+.chat-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: var(--red);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    background var(--dur-normal) var(--ease-out),
+    color var(--dur-normal) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+.chat-send-btn[data-streaming="true"] { background: var(--red-soft); color: var(--red); }
+.chat-send-btn:active { transform: scale(var(--press-scale)); }
+@media (hover: hover) and (pointer: fine) {
+  .chat-send-btn:hover { background: var(--red-deep); }
+  .chat-send-btn[data-streaming="true"]:hover { background: rgba(227,25,55,0.20); }
+}
+
+.chat-textarea {
+  flex: 1;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-family: 'Inter', sans-serif;
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  max-height: 100px;
+  overflow-y: auto;
+  transition: border-color var(--dur-normal) var(--ease-out);
+}
+.chat-textarea:focus { border-color: var(--red); }
+
+/* ─── Reduced motion ────────────────────────────────────────────────────── */
+/* Keep opacity/color transitions (they aid comprehension).                  */
+/* Drop transforms + keyframes that move things on screen.                   */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .pulse-dot { animation: none; }
+  .skeleton,
+  .skel-line { animation: none; }
+  .stagger-in > * { opacity: 1; transform: none; animation: none; }
+  .icon-btn.is-spinning { animation: none; }
+  .chat-panel { animation: none; }
+  .is-spinning-icon { animation: none; }
+}
