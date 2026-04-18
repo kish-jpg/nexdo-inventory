@@ -447,13 +447,4 @@ export default function Dashboard() {
           <a
             href="/api/reseed"
             className="btn btn-primary"
-            style={{ textDecoration: 'none', fontFamily: 'JetBrains Mono', letterSpacing: '0.04em' }}
-          >
-            Seed Inventory Data
-          </a>
-        </div>
-      )}
-
-    </div>
-  );
-}
+            style={{ textDecoration: 'none', fontFamily: 'JetBrains Mono', le

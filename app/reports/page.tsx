@@ -535,14 +535,4 @@ export default function ReportsPage() {
                 <div style={{ marginTop: 16, padding: '14px 18px', background: 'var(--blue-soft)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, fontSize: 13 }}>
                   <strong style={{ color: 'var(--blue)' }}>Billing Summary:</strong>
                   <span style={{ color: 'var(--text)', marginLeft: 8 }}>
-                    NexDo cleaning cost for {window} days = <strong>${report.nexdoTotalCost.toFixed(2)}</strong> across <strong>{report.totalOccupiedRoomNights.toLocaleString()}</strong> occupied room-nights = <strong>${report.nexdoCostPerRoom}/room</strong>.
-                  </span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+                    NexDo cleaning cost for {window} days = <strong>${report.nexdoTotalCost.toFixed(2)}</strong> across <strong>{report.totalOccupiedRoomNights.toLocaleString()}</strong> occupied room-nights = <strong>${report.nexdoCostPerRoom}/roo
