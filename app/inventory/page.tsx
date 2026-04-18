@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/components/AuthProvider';
+import Modal from '@/app/components/Modal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,19 +111,18 @@ function ItemFormModal({ mode, item, categories, onSave, onClose, loading, error
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} labelledBy="item-form-title" maxWidth={540}>
         <div className="modal-header">
           <div>
-            <div className="modal-title">{mode === 'new' ? 'Add New Item' : `Edit: ${item?.name}`}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginTop: '4px' }}>
+            <div className="modal-title" id="item-form-title">{mode === 'new' ? 'Add New Item' : `Edit: ${item?.name}`}</div>
+            <div className="meta-label" style={{ marginTop: '4px', textTransform: 'none' }}>
               {mode === 'new' ? 'Fill in item details below' : 'Update item details'}
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
-        {error && <div className="error-box">{error}</div>}
+        {error && <div className="error-box" role="alert">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           {/* Admin-only: identity fields */}
@@ -218,8 +218,7 @@ function ItemFormModal({ mode, item, categories, onSave, onClose, loading, error
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -251,16 +250,15 @@ function AdjustModal({ item, onSave, onClose, loading, error }: AdjustModalProps
     parseInt(qty) || item.stock;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} labelledBy="adjust-title" maxWidth={420}>
         <div className="modal-header">
           <div>
-            <div className="modal-title">Adjust Stock</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginTop: '4px' }}>
+            <div className="modal-title" id="adjust-title">Adjust Stock</div>
+            <div className="meta-label" style={{ marginTop: '4px', textTransform: 'none' }}>
               {item.name}
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
         {/* Type selector */}
@@ -332,8 +330,7 @@ function AdjustModal({ item, onSave, onClose, loading, error }: AdjustModalProps
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -352,16 +349,15 @@ function HistoryModal({ item, onClose }: { item: Item; onClose: () => void }) {
   }, [item.id]);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} labelledBy="history-title" maxWidth={560}>
         <div className="modal-header">
           <div>
-            <div className="modal-title">{item.name}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginTop: '4px' }}>
+            <div className="modal-title" id="history-title">{item.name}</div>
+            <div className="meta-label" style={{ marginTop: '4px', textTransform: 'none' }}>
               Stock History · Last 20 transactions
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
         {loading ? (
@@ -402,8 +398,7 @@ function HistoryModal({ item, onClose }: { item: Item; onClose: () => void }) {
             </tbody>
           </table>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -411,10 +406,9 @@ function HistoryModal({ item, onClose }: { item: Item; onClose: () => void }) {
 
 function DeleteConfirm({ item, onConfirm, onClose, loading }: { item: Item; onConfirm: () => void; onClose: () => void; loading: boolean }) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: '360px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} labelledBy="delete-title" maxWidth={360} role="alertdialog" textAlign="center">
         <div style={{ fontSize: '32px', marginBottom: '14px', opacity: 0.6 }}>🗑</div>
-        <div className="modal-title" style={{ marginBottom: '8px' }}>Delete "{item.name}"?</div>
+        <div className="modal-title" id="delete-title" style={{ marginBottom: '8px' }}>Delete &ldquo;{item.name}&rdquo;?</div>
         <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '28px', lineHeight: 1.6 }}>
           This will permanently delete the item and all its stock history. This cannot be undone.
         </div>
@@ -428,8 +422,7 @@ function DeleteConfirm({ item, onConfirm, onClose, loading }: { item: Item; onCo
             {loading ? 'Deleting…' : 'Yes, Delete'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -559,7 +552,7 @@ export default function InventoryPage() {
         </div>
 
         {/* KPI Strip */}
-        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="kpi-grid stagger-in" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {[
             { label: 'Total Items',  value: items.length, color: 'kpi-blue' },
             { label: 'Stock OK',     value: green,         color: 'kpi-green' },
@@ -577,10 +570,11 @@ export default function InventoryPage() {
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Search */}
           <div className="search-wrap" style={{ flex: '1', minWidth: '200px', maxWidth: '300px' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden>
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <input
+              aria-label="Search items or codes"
               placeholder="Search items or codes…"
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -588,6 +582,7 @@ export default function InventoryPage() {
             {search && (
               <button
                 onClick={() => setSearch('')}
+                aria-label="Clear search"
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: '0 2px' }}
               >
                 ×
@@ -623,8 +618,15 @@ export default function InventoryPage() {
         {/* Table */}
         <div className="table-wrap">
           {loading ? (
-            <div className="empty-state">
-              <div className="empty-state-sub mono" style={{ letterSpacing: '0.1em' }}>LOADING INVENTORY…</div>
+            <div style={{ padding: 'var(--sp-5)' }} aria-hidden>
+              {[0, 1, 2, 3, 4, 5].map(i => (
+                <span
+                  key={i}
+                  className="skel-line"
+                  style={{ display: 'block', height: 18, marginBottom: 12, width: `${60 + ((i * 7) % 35)}%` }}
+                />
+              ))}
+              <span className="sr-only" role="status">Loading inventory</span>
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
@@ -743,6 +745,7 @@ export default function InventoryPage() {
                           <button
                             className="btn btn-sm btn-action-red"
                             onClick={() => openModal('delete', item)}
+                            aria-label={`Delete ${item.name}`}
                             title="Delete"
                           >
                             ×

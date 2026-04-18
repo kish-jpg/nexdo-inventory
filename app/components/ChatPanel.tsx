@@ -92,7 +92,7 @@ function renderContent(text: string) {
 
 function TypingDots() {
   return (
-    <div style={{ display: 'flex', gap: 4, padding: '10px 14px', alignItems: 'center' }}>
+    <div style={{ display: 'flex', gap: 4, padding: '10px 14px', alignItems: 'center' }} aria-label="Assistant is typing">
       {[0, 1, 2].map(i => (
         <div
           key={i}
@@ -101,7 +101,7 @@ function TypingDots() {
             height: 6,
             borderRadius: '50%',
             background: 'var(--text-muted)',
-            animation: `chatDot 1.2s ease-in-out ${i * 0.2}s infinite`,
+            animation: `chat-dot 1.2s ease-in-out ${i * 0.2}s infinite`,
           }}
         />
       ))}
@@ -131,6 +131,16 @@ export default function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
       setTimeout(() => inputRef.current?.focus(), 120);
     }
   }, [isOpen]);
+
+  // Escape to close (only while panel is open)
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -225,38 +235,12 @@ export default function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
 
   return (
     <>
-      {/* Keyframe injection */}
-      <style>{`
-        @keyframes chatDot {
-          0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
-          40% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes chatSlideIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
-
       {/* Floating panel */}
       <div
         role="dialog"
+        aria-modal="false"
         aria-label="Inventory AI Assistant"
-        style={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          width: 380,
-          height: 560,
-          zIndex: 'var(--z-modal)' as any,
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--bg-sub)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: '0 24px 48px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.04)',
-          animation: 'chatSlideIn 0.18s ease',
-          overflow: 'hidden',
-        }}
+        className="chat-panel"
       >
         {/* Header */}
         <div style={{
@@ -292,13 +276,16 @@ export default function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
               }}>
                 Inventory AI
               </div>
-              <div style={{
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 9,
-                color: 'var(--text-muted)',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}>
+              <div
+                aria-live="polite"
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 9,
+                  color: 'var(--text-muted)',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                }}
+              >
                 {isStreaming ? '● Responding…' : '● Live data · Gemini 2.0 Flash'}
               </div>
             </div>
@@ -307,40 +294,18 @@ export default function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
             {messages.length > 0 && (
               <button
                 onClick={clearChat}
+                aria-label="Clear conversation"
                 title="Clear conversation"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  padding: '4px 6px',
-                  borderRadius: 6,
-                  display: 'flex',
-                  alignItems: 'center',
-                  transition: 'background 0.12s',
-                }}
-                onMouseOver={e => (e.currentTarget.style.background = 'var(--hover-bg)')}
-                onMouseOut={e => (e.currentTarget.style.background = 'none')}
+                className="chat-icon-btn"
               >
                 <TrashIcon />
               </button>
             )}
             <button
               onClick={onClose}
-              title="Close"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '4px 6px',
-                borderRadius: 6,
-                display: 'flex',
-                alignItems: 'center',
-                transition: 'background 0.12s',
-              }}
-              onMouseOver={e => (e.currentTarget.style.background = 'var(--hover-bg)')}
-              onMouseOut={e => (e.currentTarget.style.background = 'none')}
+              aria-label="Close assistant"
+              title="Close (Esc)"
+              className="chat-icon-btn"
             >
               <CloseIcon />
             </button>
@@ -380,27 +345,7 @@ export default function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
                   <button
                     key={prompt}
                     onClick={() => sendMessage(prompt)}
-                    style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid var(--card-border)',
-                      borderRadius: 8,
-                      padding: '8px 12px',
-                      textAlign: 'left',
-                      color: 'var(--text)',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      fontFamily: 'Inter, sans-serif',
-                      transition: 'all 0.12s',
-                      lineHeight: 1.4,
-                    }}
-                    onMouseOver={e => {
-                      e.currentTarget.style.background = 'rgba(227,25,55,0.06)';
-                      e.currentTarget.style.borderColor = 'rgba(227,25,55,0.25)';
-                    }}
-                    onMouseOut={e => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                      e.currentTarget.style.borderColor = 'var(--card-border)';
-                    }}
+                    className="chat-quick-prompt"
                   >
                     {prompt}
                   </button>
@@ -478,26 +423,10 @@ export default function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask about stock, orders, linen…"
+            aria-label="Ask the inventory assistant"
             rows={1}
             disabled={isStreaming}
-            style={{
-              flex: 1,
-              background: 'var(--input-bg)',
-              border: '1px solid var(--input-border)',
-              borderRadius: 8,
-              padding: '8px 12px',
-              color: 'var(--text)',
-              fontSize: 13,
-              fontFamily: 'Inter, sans-serif',
-              resize: 'none',
-              outline: 'none',
-              lineHeight: 1.5,
-              maxHeight: 100,
-              overflowY: 'auto',
-              transition: 'border-color 0.12s',
-            }}
-            onFocus={e => (e.target.style.borderColor = 'var(--red)')}
-            onBlur={e => (e.target.style.borderColor = 'var(--input-border)')}
+            className="chat-textarea"
             onInput={e => {
               const el = e.currentTarget;
               el.style.height = 'auto';
@@ -512,21 +441,10 @@ export default function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
                 sendMessage(input);
               }
             }}
+            aria-label={isStreaming ? 'Stop generating' : 'Send message'}
             title={isStreaming ? 'Stop' : 'Send (Enter)'}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              border: 'none',
-              background: isStreaming ? 'var(--red-soft)' : 'var(--red)',
-              color: isStreaming ? 'var(--red)' : 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              transition: 'all 0.12s',
-            }}
+            className="chat-send-btn"
+            data-streaming={isStreaming || undefined}
           >
             {isStreaming ? (
               <div style={{ width: 12, height: 12, borderRadius: 2, background: 'var(--red)' }} />

@@ -39,7 +39,7 @@ function daysColor(d: number | null) {
   if (d === null) return 'var(--text-muted)';
   if (d < 3)  return 'var(--red)';
   if (d < 7)  return 'var(--amber)';
-  if (d < 14) return '#f97316';
+  if (d < 14) return 'var(--orange)';
   return 'var(--green)';
 }
 
@@ -51,8 +51,7 @@ function daysLabel(d: number | null) {
 
 const Spinner = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-    style={{ animation: 'spin 0.8s linear infinite' }}>
-    <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    className="is-spinning-icon" aria-hidden>
     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
   </svg>
 );
@@ -190,19 +189,19 @@ export default function ReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid var(--border)' }}>
+      <div className="tab-bar" role="tablist" aria-label="Report sections">
         {([
           { id: 'occupancy',   label: 'Occupancy Log' },
           { id: 'consumption', label: 'Consumption & Forecast' },
           { id: 'nexdo-cost',  label: 'NexDo Cost Report' },
         ] as const).map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: '9px 18px', border: 'none', cursor: 'pointer', background: 'none',
-            borderBottom: tab === t.id ? '2px solid var(--red)' : '2px solid transparent',
-            color: tab === t.id ? 'var(--text)' : 'var(--text-muted)',
-            fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: tab === t.id ? 600 : 400,
-            transition: 'var(--transition)', marginBottom: -1,
-          }}>{t.label}</button>
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className="tab"
+          >{t.label}</button>
         ))}
       </div>
 
@@ -254,8 +253,8 @@ export default function ReportsPage() {
                     <label className="form-label">Notes (optional)</label>
                     <input className="form-input" placeholder="e.g. event in house, school holidays..." value={occNotes} onChange={e => setOccNotes(e.target.value)} />
                   </div>
-                  {occError && <div className="error-box">{occError}</div>}
-                  {occSuccess && <div style={{ background: 'var(--green-soft)', border: '1px solid rgba(34,197,94,.25)', borderRadius: 7, padding: '10px 14px', fontSize: 12, color: 'var(--green)', marginBottom: 12 }}>✓ Occupancy logged</div>}
+                  {occError && <div className="error-box" role="alert">{occError}</div>}
+                  {occSuccess && <div role="status" style={{ background: 'var(--green-soft)', border: '1px solid rgba(34,197,94,.25)', borderRadius: 7, padding: '10px 14px', fontSize: 12, color: 'var(--green)', marginBottom: 12 }}>✓ Occupancy logged</div>}
                   <button type="submit" className="btn btn-primary" disabled={occSaving} style={{ width: '100%', justifyContent: 'center' }}>
                     {occSaving && <Spinner />}{occSaving ? 'Saving…' : 'Save Occupancy'}
                   </button>
@@ -335,7 +334,7 @@ export default function ReportsPage() {
           {report && (
             <>
               {/* Summary KPIs */}
-              <div className="kpi-grid" style={{ marginBottom: 20 }}>
+              <div className="kpi-grid stagger-in" style={{ marginBottom: 20 }}>
                 <div className="kpi-card kpi-blue">
                   <div className="kpi-label">Avg Occupancy</div>
                   <div className="kpi-value">{report.avgOccupancy !== null ? `${report.avgOccupancy}%` : '—'}</div>
@@ -451,7 +450,7 @@ export default function ReportsPage() {
           {report && (
             <>
               {/* Cost KPIs */}
-              <div className="kpi-grid" style={{ marginBottom: 20 }}>
+              <div className="kpi-grid stagger-in" style={{ marginBottom: 20 }}>
                 <div className="kpi-card kpi-red">
                   <div className="kpi-label">Total NexDo Spend</div>
                   <div className="kpi-value" style={{ fontSize: 28 }}>${report.nexdoTotalCost.toFixed(2)}</div>

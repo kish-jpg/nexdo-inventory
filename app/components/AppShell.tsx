@@ -188,6 +188,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               href={href}
               className={`sidebar-nav-item${activePage === id ? ' active' : ''}`}
               style={{ justifyContent: collapsed ? 'center' : undefined }}
+              aria-current={activePage === id ? 'page' : undefined}
               title={collapsed ? label : undefined}
             >
               <Icon />
@@ -202,10 +203,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button
             className="sidebar-nav-item"
             onClick={() => setChatOpen(o => !o)}
+            aria-pressed={chatOpen}
+            aria-label="Toggle Inventory AI Assistant"
             style={{
               justifyContent: collapsed ? 'center' : undefined,
               color: chatOpen ? 'var(--red)' : undefined,
-              background: chatOpen ? 'rgba(227,25,55,0.08)' : undefined,
+              background: chatOpen ? 'var(--red-soft)' : undefined,
             }}
             title="Inventory AI Assistant"
           >
@@ -230,6 +233,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button
             className="sidebar-nav-item"
             onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             style={{ justifyContent: collapsed ? 'center' : undefined }}
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
@@ -244,6 +248,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <button
               className="sidebar-nav-item"
               onClick={logout}
+              aria-label="Sign out"
               style={{ justifyContent: collapsed ? 'center' : undefined, color: 'var(--text-muted)' }}
               title="Sign out"
             >
@@ -261,6 +266,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <button
           className="sidebar-collapse-btn"
           onClick={() => setCollapsed(c => !c)}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}

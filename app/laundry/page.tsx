@@ -58,9 +58,11 @@ function fmtDate(d: string) {
 // ─── Spinner ─────────────────────────────────────────────────────────────────
 
 const Spinner = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-    style={{ animation: 'spin 0.8s linear infinite' }}>
-    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+  <svg
+    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+    className="is-spinning-icon"
+    aria-hidden
+  >
     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
   </svg>
 );
@@ -72,33 +74,28 @@ function NumInput({ label, value, onChange, sub }: {
 }) {
   return (
     <div>
-      <label className="form-label">{label}{sub && <span style={{ color: 'var(--text-subtle)', marginLeft: 4, textTransform: 'none', letterSpacing: 0 }}>{sub}</span>}</label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+      <label className="form-label">
+        {label}
+        {sub && <span style={{ color: 'var(--text-subtle)', marginLeft: 4, textTransform: 'none', letterSpacing: 0 }}>{sub}</span>}
+      </label>
+      <div className="num-input">
         <button
           type="button"
           onClick={() => onChange(Math.max(0, value - 1))}
-          style={{
-            width: 34, height: 38, background: 'var(--input-bg)', border: '1px solid var(--input-border)',
-            borderRight: 'none', borderRadius: '7px 0 0 7px', color: 'var(--text-muted)',
-            cursor: 'pointer', fontSize: 18, fontWeight: 600, lineHeight: 1,
-            transition: 'var(--transition)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
+          aria-label={`Decrement ${label}`}
+          className="num-input__btn num-input__btn--left"
         >−</button>
         <input
           type="number" min={0} value={value}
           onChange={e => onChange(Math.max(0, parseInt(e.target.value) || 0))}
-          className="form-input"
-          style={{ textAlign: 'center', borderRadius: 0, width: 64, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}
+          aria-label={label}
+          className="form-input num-input__field"
         />
         <button
           type="button"
           onClick={() => onChange(value + 1)}
-          style={{
-            width: 34, height: 38, background: 'var(--input-bg)', border: '1px solid var(--input-border)',
-            borderLeft: 'none', borderRadius: '0 7px 7px 0', color: 'var(--text-muted)',
-            cursor: 'pointer', fontSize: 18, fontWeight: 600, lineHeight: 1,
-            transition: 'var(--transition)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
+          aria-label={`Increment ${label}`}
+          className="num-input__btn num-input__btn--right"
         >+</button>
       </div>
     </div>
@@ -255,7 +252,7 @@ export default function LaundryPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+      <div className="tab-bar" role="tablist" aria-label="Laundry sections">
         {([
           { id: 'log',      label: 'Log Cleans' },
           { id: 'delivery', label: 'Log Delivery' },
@@ -263,14 +260,10 @@ export default function LaundryPage() {
         ] as const).map(t => (
           <button
             key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            style={{
-              padding: '9px 18px', border: 'none', cursor: 'pointer',
-              background: 'none', borderBottom: tab === t.id ? '2px solid var(--red)' : '2px solid transparent',
-              color: tab === t.id ? 'var(--text)' : 'var(--text-muted)',
-              fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: tab === t.id ? 600 : 400,
-              transition: 'var(--transition)', marginBottom: -1,
-            }}
+            className="tab"
           >{t.label}</button>
         ))}
       </div>
