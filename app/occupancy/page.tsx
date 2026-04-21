@@ -1,29 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 
-type Occupancy = {
+type OccupancyLog = {
+  id: number;
   date: string;
-  totalOcc: number;
-  arrRooms: number;
-  depRooms: number;
-  occPercent: number;
-  roomRevenue: number;
-  avgRate: number;
-  adlChildren: number;
+  occupiedRooms: number;
+  totalRooms: number;
+  occupancyPct: number;
+  arrivals?: number;
+  departures?: number;
+  stayovers?: number;
+  roomRevenue?: number | null;
+  adr?: number | null;
+  notes: string;
+  source?: string;
 };
 
 type Summary = {
   latestDate: string;
-  avgOccPercent: number;
+  avgOccupancyPct: number;
   avgRevenue: number;
   avgRate: number;
   totalDays: number;
 };
 
 export default function OccupancyPage() {
-  const [data, setData] = useState<Occupancy[]>([]);
+  const [data, setData] = useState<OccupancyLog[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
@@ -36,7 +39,7 @@ export default function OccupancyPage() {
       const res = await fetch('/api/occupancy/data');
       const json = await res.json();
       if (json.data) {
-        setData(json.data.sort((a: Occupancy, b: Occupancy) => b.date.localeCompare(a.date)));
+        setData(json.data); // Already sorted by API (newest first)
         setSummary(json.summary);
       }
     } catch (err) {
@@ -104,10 +107,10 @@ export default function OccupancyPage() {
           marginBottom: '2rem',
         }}>
           <SummaryCard label="Latest Date" value={summary.latestDate || '—'} />
-          <SummaryCard label="Avg Occupancy" value={`${summary.avgOccPercent.toFixed(1)}%`} />
+          <SummaryCard label="Avg Occupancy" value={`${summary.avgOccupancyPct}%`} />
           <SummaryCard label="Avg Daily Revenue" value={`NZ$${summary.avgRevenue.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}`} />
-          <SummaryCard label="Avg Rate" value={`NZ$${summary.avgRate.toFixed(0)}`} />
-          <SummaryCard label="Total Days" value={summary.totalDays.toString()} />
+          <SummaryCard label="Avg ADR" value={`NZ$${summary.avgRate.toFixed(0)}`} />
+          <SummaryCard label="Days Tracked" value={summary.totalDays.toString()} />
         </div>
       )}
 
@@ -120,10 +123,10 @@ export default function OccupancyPage() {
         marginBottom: '2rem',
       }}>
         <h2 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: 'var(--text)' }}>
-          Upload Occupancy Data
+          Import Occupancy Data
         </h2>
         <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-          Upload a CSV file with occupancy data. File should include columns: Date, Total Occ., Arr. Rooms, Comp. Rooms, House Use, Deduct Indiv., Non-Ded. Indiv., Deduct Group, Non-Ded. Group, Occ.%, Room Revenue, Average Rate, Dep. Rooms, Day Use Rooms, No Show Rooms, OOO Rooms, Adl. & Chl.
+          Upload a CSV export from your Opera PMS or hotel management system. The system will map key columns: Date, Total Occupied Rooms, Arrivals, Average Daily Rate, Room Revenue, and Departures.
         </p>
 
         <div style={{
@@ -189,30 +192,28 @@ export default function OccupancyPage() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Date</th>
-                <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Occ.</th>
-                <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>%</th>
+                <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Rooms</th>
+                <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Occ. %</th>
                 <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Arr.</th>
                 <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Dep.</th>
                 <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Revenue</th>
-                <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Avg Rate</th>
-                <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>Guests</th>
+                <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text-muted)', fontWeight: '500' }}>ADR</th>
               </tr>
             </thead>
             <tbody>
               {sortedData.map((row) => (
                 <tr key={row.date} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text)', fontFamily: 'JetBrains Mono' }}>{row.date}</td>
-                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>{row.totalOcc}</td>
-                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>{row.occPercent.toFixed(1)}%</td>
-                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>{row.arrRooms}</td>
-                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>{row.depRooms}</td>
+                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>{row.occupiedRooms}/{row.totalRooms}</td>
+                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)', fontWeight: '500' }}>{row.occupancyPct}%</td>
+                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>{row.arrivals ?? '—'}</td>
+                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>{row.departures ?? '—'}</td>
                   <td style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--gold)', fontWeight: '500' }}>
-                    NZ${row.roomRevenue.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}
+                    {row.roomRevenue ? `NZ$${row.roomRevenue.toLocaleString('en-NZ', { maximumFractionDigits: 0 })}` : '—'}
                   </td>
                   <td style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>
-                    NZ${row.avgRate.toFixed(0)}
+                    {row.adr ? `NZ$${row.adr.toFixed(0)}` : '—'}
                   </td>
-                  <td style={{ textAlign: 'center', padding: '0.75rem 0.5rem', color: 'var(--text)' }}>{row.adlChildren}</td>
                 </tr>
               ))}
             </tbody>

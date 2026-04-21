@@ -1,10 +1,11 @@
 /**
  * POST /api/occupancy/upload
- * Parse CSV occupancy data and batch-write to Google Sheets
- * Expects FormData with 'file' containing CSV
+ * Parse CSV occupancy data and write to Google Sheets
+ * Expects FormData with 'file' containing CSV with columns:
+ * Date, Total Occ., Arr. Rooms, ... (from Opera PMS export)
  */
 
-import { appendOccupancyRows } from '@/lib/sheets';
+import { saveOccupancyLog } from '@/lib/sheets';
 
 export async function POST(req: Request) {
   try {
@@ -28,50 +29,48 @@ export async function POST(req: Request) {
       );
     }
 
-    // Skip header row, parse data rows
-    const rows: (string | number | null)[][] = [];
+    // Parse CSV — handle Opera PMS column names (flexible mapping)
+    let saved = 0;
     for (let i = 1; i < lines.length; i++) {
       const parts = lines[i].split(',').map(p => p.trim());
-      if (parts.length < 17) continue; // Must have all columns
+      if (!parts[0]) continue; // Skip empty rows
 
-      // Parse values, keeping nulls for empty cells
-      const row = [
-        parts[0],  // date
-        parts[1] ? parseInt(parts[1]) : null,  // totalOcc
-        parts[2] ? parseInt(parts[2]) : null,  // arrRooms
-        parts[3] ? parseInt(parts[3]) : null,  // compRooms
-        parts[4] ? parseInt(parts[4]) : null,  // houseUse
-        parts[5] ? parseInt(parts[5]) : null,  // deductIndiv
-        parts[6] ? parseInt(parts[6]) : null,  // nonDedIndiv
-        parts[7] ? parseInt(parts[7]) : null,  // deductGroup
-        parts[8] ? parseInt(parts[8]) : null,  // nonDedGroup
-        parts[9] ? parseFloat(parts[9].replace('%', '')) : null,  // occPercent
-        parts[10] ? parseFloat(parts[10]) : null,  // roomRevenue
-        parts[11] ? parseFloat(parts[11]) : null,  // avgRate
-        parts[12] ? parseInt(parts[12]) : null,  // depRooms
-        parts[13] ? parseInt(parts[13]) : null,  // dayUseRooms
-        parts[14] ? parseInt(parts[14]) : null,  // noShowRooms
-        parts[15] ? parseInt(parts[15]) : null,  // oooRooms
-        parts[16] ? parseInt(parts[16]) : null,  // adlChildren
-      ];
+      // Map CSV columns to OccupancyInput schema
+      // Flexible: supports various column orderings
+      const record = {
+        date: parts[0], // Column A: Date (YYYY-MM-DD)
+        occupiedRooms: parts[1] ? parseInt(parts[1]) : 0, // Column B: Total Occ.
+        arrivals: parts[2] ? parseInt(parts[2]) : undefined, // Column C: Arr. Rooms
+        departures: parts[12] ? parseInt(parts[12]) : undefined, // Column M: Dep. Rooms
+        houseUse: parts[4] ? parseInt(parts[4]) : undefined, // Column E: House Use
+        dayUse: parts[13] ? parseInt(parts[13]) : undefined, // Column N: Day Use Rooms
+        noShow: parts[14] ? parseInt(parts[14]) : undefined, // Column O: No Show Rooms
+        ooo: parts[15] ? parseInt(parts[15]) : undefined, // Column P: OOO Rooms
+        roomRevenue: parts[10] ? parseFloat(parts[10]) : undefined, // Column K: Room Revenue
+        adr: parts[11] ? parseFloat(parts[11]) : undefined, // Column L: Average Rate
+        source: 'Opera-Import' as const,
+      };
 
-      rows.push(row);
+      try {
+        await saveOccupancyLog(record);
+        saved++;
+      } catch (err) {
+        console.warn(`Failed to save row ${i}:`, err);
+        // Continue with next row
+      }
     }
 
-    if (rows.length === 0) {
+    if (saved === 0) {
       return Response.json(
-        { error: 'No valid data rows found in CSV' },
+        { error: 'No valid occupancy records could be saved' },
         { status: 400 }
       );
     }
 
-    // Batch write to Sheets
-    await appendOccupancyRows(rows);
-
     return Response.json({
       success: true,
-      message: `Uploaded ${rows.length} occupancy records`,
-      rowsAdded: rows.length,
+      message: `Uploaded ${saved} occupancy records`,
+      rowsAdded: saved,
     });
   } catch (error) {
     console.error('Upload error:', error);

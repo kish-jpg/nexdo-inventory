@@ -227,13 +227,6 @@ const CATEGORY_HEADERS = ['id', 'name'];
 
 const TX_HEADERS = ['id', 'itemId', 'itemName', 'quantity', 'type', 'reason', 'doneBy', 'timestamp'];
 
-const OCCUPANCY_HEADERS = [
-  'date', 'totalOcc', 'arrRooms', 'compRooms', 'houseUse',
-  'deductIndiv', 'nonDedIndiv', 'deductGroup', 'nonDedGroup',
-  'occPercent', 'roomRevenue', 'avgRate', 'depRooms',
-  'dayUseRooms', 'noShowRooms', 'oooRooms', 'adlChildren',
-];
-
 // ─── Clear all data (keep headers) ───────────────────────────────────────────
 
 export async function clearAllData(): Promise<void> {
@@ -1882,91 +1875,3 @@ export async function getProjectsDashboard() {
   };
 }
 
-// ─── Occupancy ─────────────────────────────────────────────────────────────────
-
-export type SheetOccupancy = {
-  date: string; // YYYY-MM-DD
-  totalOcc: number;
-  arrRooms: number;
-  compRooms: number;
-  houseUse: number;
-  deductIndiv: number;
-  nonDedIndiv: number;
-  deductGroup: number;
-  nonDedGroup: number;
-  occPercent: number; // 0-100
-  roomRevenue: number;
-  avgRate: number;
-  depRooms: number;
-  dayUseRooms: number;
-  noShowRooms: number;
-  oooRooms: number;
-  adlChildren: number;
-};
-
-function rowToOccupancy(row: string[]): SheetOccupancy {
-  return {
-    date: row[0] || '',
-    totalOcc: ni(row[1]),
-    arrRooms: ni(row[2]),
-    compRooms: ni(row[3]),
-    houseUse: ni(row[4]),
-    deductIndiv: ni(row[5]),
-    nonDedIndiv: ni(row[6]),
-    deductGroup: ni(row[7]),
-    nonDedGroup: ni(row[8]),
-    occPercent: n(row[9]?.replace('%', '')) ?? 0,
-    roomRevenue: n(row[10]) ?? 0,
-    avgRate: n(row[11]) ?? 0,
-    depRooms: ni(row[12]),
-    dayUseRooms: ni(row[13]),
-    noShowRooms: ni(row[14]),
-    oooRooms: ni(row[15]),
-    adlChildren: ni(row[16]),
-  };
-}
-
-export async function getOccupancy(dateRange?: { start: string; end: string }): Promise<SheetOccupancy[]> {
-  const rows = await sheetsGet('Occupancy!A:Q');
-  if (rows.length <= 1) return [];
-
-  const data = rows.slice(1)
-    .filter(r => r[0])
-    .map(rowToOccupancy);
-
-  if (dateRange) {
-    return data.filter(o => o.date >= dateRange.start && o.date <= dateRange.end);
-  }
-  return data;
-}
-
-export async function appendOccupancyRows(rows: (string | number | null)[][]): Promise<void> {
-  if (rows.length === 0) return;
-  await sheetsBatchAppend('Occupancy', rows);
-}
-
-export async function getOccupancySummary(): Promise<{
-  latestDate: string;
-  avgOccPercent: number;
-  avgRevenue: number;
-  avgRate: number;
-  totalDays: number;
-}> {
-  const data = await getOccupancy();
-  if (data.length === 0) {
-    return { latestDate: '', avgOccPercent: 0, avgRevenue: 0, avgRate: 0, totalDays: 0 };
-  }
-
-  const avgOccPercent = data.reduce((sum, o) => sum + o.occPercent, 0) / data.length;
-  const avgRevenue = data.reduce((sum, o) => sum + o.roomRevenue, 0) / data.length;
-  const avgRate = data.reduce((sum, o) => sum + o.avgRate, 0) / data.length;
-  const latestDate = [...data].sort((a, b) => b.date.localeCompare(a.date))[0]?.date || '';
-
-  return {
-    latestDate,
-    avgOccPercent: Math.round(avgOccPercent * 100) / 100,
-    avgRevenue: Math.round(avgRevenue * 100) / 100,
-    avgRate: Math.round(avgRate * 100) / 100,
-    totalDays: data.length,
-  };
-}

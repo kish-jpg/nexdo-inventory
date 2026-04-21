@@ -1,30 +1,34 @@
 /**
  * GET /api/occupancy/data
- * Fetch occupancy data, optionally filtered by date range
- * Query params: ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ * Fetch occupancy logs (last 90 days by default)
+ * Query params: ?limit=30 (default 90)
  */
 
-import { getOccupancy, getOccupancySummary } from '@/lib/sheets';
+import { getOccupancyLogs } from '@/lib/sheets';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+    const limitStr = searchParams.get('limit');
+    const limit = limitStr ? Math.min(parseInt(limitStr), 365) : 90;
 
-    let data;
-    if (startDate && endDate) {
-      data = await getOccupancy({ start: startDate, end: endDate });
-    } else {
-      data = await getOccupancy();
-    }
+    const logs = await getOccupancyLogs(limit);
 
-    const summary = await getOccupancySummary();
+    // Compute summary stats
+    const summary = logs.length === 0
+      ? { latestDate: '', avgOccupancyPct: 0, avgRevenue: 0, avgRate: 0, totalDays: 0 }
+      : {
+          latestDate: logs[0]?.date || '',
+          avgOccupancyPct: Math.round(logs.reduce((s, o) => s + o.occupancyPct, 0) / logs.length),
+          avgRevenue: Math.round((logs.reduce((s, o) => s + (o.roomRevenue ?? 0), 0) / logs.length) * 100) / 100,
+          avgRate: Math.round((logs.reduce((s, o) => s + (o.adr ?? 0), 0) / logs.length) * 100) / 100,
+          totalDays: logs.length,
+        };
 
     return Response.json({
-      data,
+      data: logs,
       summary,
-      count: data.length,
+      count: logs.length,
     });
   } catch (error) {
     console.error('Occupancy data fetch error:', error);
