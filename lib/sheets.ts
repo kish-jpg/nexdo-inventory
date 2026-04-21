@@ -1950,3 +1950,109 @@ export async function batchSaveOccupancyLogs(logs: OccupancyInput[]): Promise<nu
   await sheetsWriteRows(range, rows);
   return rows.length;
 }
+
+// ─── HSK Room Status ──────────────────────────────────────────────────────────
+
+const HSK_ROOM_STATUS_HEADERS = [
+  'id', 'date', 'room', 'floor', 'hskStatus',
+  'guestName', 'roomType', 'adults', 'children',
+  'arrival', 'departure', 'nights', 'vip', 'company',
+  'resvStatus', 'source', 'timestamp',
+];
+
+export type HSKRoomStatusEntry = {
+  id: number;
+  date: string;
+  room: string;
+  floor: string;
+  hskStatus: 'DEP' | 'STA' | 'OUT'; // Departure / Stayover / Checked-Out
+  guestName: string;
+  roomType: string;
+  adults: number;
+  children: number;
+  arrival: string;
+  departure: string;
+  nights: number;
+  vip: string;
+  company: string;
+  resvStatus: string; // raw Opera status
+  source: string;
+  timestamp: string;
+};
+
+export async function initHSKRoomStatusSheet(): Promise<void> {
+  await ensureSheet('HSKRoomStatus');
+  await sheetsUpdate('HSKRoomStatus!A1:Q1', HSK_ROOM_STATUS_HEADERS);
+}
+
+/** Replace all room status entries for a given date with a fresh set */
+export async function saveHSKRoomStatusForDate(
+  date: string,
+  rooms: Omit<HSKRoomStatusEntry, 'id' | 'timestamp'>[],
+): Promise<number> {
+  await initHSKRoomStatusSheet();
+
+  // Read existing to find rows for this date (to delete them)
+  const existing = await sheetsGet('HSKRoomStatus!A:Q');
+  const timestamp = new Date().toISOString();
+
+  // Find the row indices that belong to this date (1-indexed, skip header)
+  const dateRowIndices: number[] = [];
+  for (let i = 1; i < existing.length; i++) {
+    if (existing[i][1] === date) dateRowIndices.push(i + 1); // +1 for 1-indexed sheet row
+  }
+
+  // Clear existing rows for this date by blanking them out
+  for (const rowNum of dateRowIndices) {
+    await sheetsUpdate(`HSKRoomStatus!A${rowNum}:Q${rowNum}`, Array(17).fill(''));
+  }
+
+  // Get max ID from non-blanked rows
+  const allIds = existing.slice(1).map(r => parseInt(r[0] ?? '0')).filter(n => !isNaN(n) && n > 0);
+  let nextIdVal = allIds.length === 0 ? 1 : Math.max(...allIds) + 1;
+
+  if (rooms.length === 0) return 0;
+
+  // Write new rows at end
+  const newRows = rooms.map(r => [
+    nextIdVal++, date, r.room, r.floor, r.hskStatus,
+    r.guestName, r.roomType, r.adults, r.children,
+    r.arrival, r.departure, r.nights, r.vip, r.company,
+    r.resvStatus, r.source, timestamp,
+  ]);
+
+  // Find first empty row (after existing data + blanked rows)
+  const startRow = existing.length + 1; // append after all existing rows
+  const endRow = startRow + newRows.length - 1;
+  await sheetsWriteRows(`HSKRoomStatus!A${startRow}:Q${endRow}`, newRows);
+
+  invalidateCache();
+  return rooms.length;
+}
+
+export async function getHSKRoomStatusForDate(date: string): Promise<HSKRoomStatusEntry[]> {
+  const rows = await sheetsGet('HSKRoomStatus!A:Q');
+  return rows
+    .slice(1)
+    .filter(r => r[0] && r[1] === date)
+    .map(r => ({
+      id: ni(r[0]),
+      date: r[1] ?? '',
+      room: r[2] ?? '',
+      floor: r[3] ?? '',
+      hskStatus: (r[4] ?? 'STA') as 'DEP' | 'STA' | 'OUT',
+      guestName: r[5] ?? '',
+      roomType: r[6] ?? '',
+      adults: ni(r[7]),
+      children: ni(r[8]),
+      arrival: r[9] ?? '',
+      departure: r[10] ?? '',
+      nights: ni(r[11]),
+      vip: r[12] ?? '',
+      company: r[13] ?? '',
+      resvStatus: r[14] ?? '',
+      source: r[15] ?? '',
+      timestamp: r[16] ?? '',
+    }))
+    .sort((a, b) => a.room.localeCompare(b.room));
+}

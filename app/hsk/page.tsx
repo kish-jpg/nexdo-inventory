@@ -70,6 +70,21 @@ export default function HSKPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [boardLoading, setBoardLoading] = useState(false);
 
+  // Room Status (from Opera HK All Status TXT)
+  type RoomStatusEntry = {
+    id: number; date: string; room: string; floor: string;
+    hskStatus: 'DEP' | 'STA' | 'OUT';
+    guestName: string; roomType: string; adults: number; children: number;
+    arrival: string; departure: string; nights: number; vip: string; company: string;
+    resvStatus: string;
+  };
+  type RoomSummary = { total: number; departures: number; stayovers: number };
+  const [roomStatus, setRoomStatus] = useState<RoomStatusEntry[]>([]);
+  const [roomSummary, setRoomSummary] = useState<RoomSummary | null>(null);
+  const [roomView, setRoomView] = useState<'floor' | 'status'>('status');
+  const [roomUploading, setRoomUploading] = useState(false);
+  const [roomUploadMsg, setRoomUploadMsg] = useState('');
+
   // Performance
   const [perfDate, setPerfDate] = useState(today());
   const [perfEntries, setPerfEntries] = useState<PerfEntry[]>([]);
@@ -125,6 +140,41 @@ export default function HSKPage() {
     } catch { /* ignore */ } finally { setBoardLoading(false); }
   }, [boardDate]);
 
+  const loadRoomStatus = useCallback(async (fresh = false) => {
+    try {
+      const url = `/api/hsk/room-status?date=${boardDate}${fresh ? '&fresh=1' : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setRoomStatus(data.rooms ?? []);
+      setRoomSummary(data.summary ?? null);
+    } catch { /* ignore */ }
+  }, [boardDate]);
+
+  const handleRoomUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRoomUploading(true);
+    setRoomUploadMsg('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('date', boardDate);
+      const res = await fetch('/api/hsk/room-status', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (res.ok) {
+        setRoomUploadMsg(`✓ ${json.message} — ${json.summary.departures} DEP · ${json.summary.stayovers} STA`);
+        await loadRoomStatus(true);
+      } else {
+        setRoomUploadMsg(`✗ ${json.error}`);
+      }
+    } catch (err) {
+      setRoomUploadMsg(`✗ Upload failed`);
+    } finally {
+      setRoomUploading(false);
+      e.target.value = '';
+    }
+  }, [boardDate, loadRoomStatus]);
+
   const loadPerformance = useCallback(async () => {
     setPerfLoading(true);
     try {
@@ -140,7 +190,7 @@ export default function HSKPage() {
   }, [perfDate, perfWindow]);
 
   useEffect(() => { loadRoster(); }, [loadRoster]);
-  useEffect(() => { if (tab === 'board') loadAssignments(); }, [tab, loadAssignments]);
+  useEffect(() => { if (tab === 'board') { loadAssignments(); loadRoomStatus(); } }, [tab, loadAssignments, loadRoomStatus]);
   useEffect(() => { if (tab === 'performance') loadPerformance(); }, [tab, loadPerformance]);
 
   // Roster lookup by phoneId
@@ -320,10 +370,155 @@ export default function HSKPage() {
             <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
               {assignments.length} / {phoneCount} phones assigned
             </span>
-            <button className="btn btn-ghost btn-sm" onClick={loadAssignments} style={{ padding: '5px 12px' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => { loadAssignments(); loadRoomStatus(); }} style={{ padding: '5px 12px' }}>
               {boardLoading ? <Spinner /> : 'Refresh'}
             </button>
           </div>
+
+          {/* ── ROOM STATUS BOARD ─────────────────────────────────────────── */}
+          <div className="glass-card" style={{ marginBottom: 28, padding: '18px 20px' }}>
+            {/* Header row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Room Status</span>
+
+              {/* KPI chips */}
+              {roomSummary && (
+                <div style={{ display: 'flex', gap: 8, marginLeft: 4 }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700,
+                    padding: '3px 10px', borderRadius: 20, background: 'var(--red-soft)', color: 'var(--red)' }}>
+                    DEP {roomSummary.departures}
+                  </span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700,
+                    padding: '3px 10px', borderRadius: 20, background: 'var(--blue-soft)', color: 'var(--blue)' }}>
+                    STA {roomSummary.stayovers}
+                  </span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700,
+                    padding: '3px 10px', borderRadius: 20, background: 'var(--hover-bg)', color: 'var(--text-muted)' }}>
+                    {roomSummary.total} rooms
+                  </span>
+                </div>
+              )}
+
+              {/* View toggle */}
+              {roomStatus.length > 0 && (
+                <div style={{ display: 'flex', gap: 0, marginLeft: 'auto', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  {(['status', 'floor'] as const).map(v => (
+                    <button key={v} onClick={() => setRoomView(v)} style={{
+                      padding: '5px 14px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer',
+                      background: roomView === v ? 'var(--red)' : 'transparent',
+                      color: roomView === v ? '#fff' : 'var(--text-muted)',
+                      fontFamily: 'JetBrains Mono, monospace', textTransform: 'capitalize',
+                    }}>
+                      {v === 'status' ? 'By Status' : 'By Floor'}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload button */}
+              <label style={{ cursor: roomUploading ? 'wait' : 'pointer' }}>
+                <input type="file" accept=".txt" style={{ display: 'none' }} onChange={handleRoomUpload} disabled={roomUploading} />
+                <span className="btn btn-ghost btn-sm" style={{ padding: '5px 12px', fontSize: 11, pointerEvents: 'none' }}>
+                  {roomUploading ? <Spinner /> : '⬆ Upload TXT'}
+                </span>
+              </label>
+            </div>
+
+            {roomUploadMsg && (
+              <div style={{
+                marginBottom: 14, padding: '8px 12px', borderRadius: 6, fontSize: 12,
+                background: roomUploadMsg.startsWith('✓') ? 'var(--green-soft)' : 'var(--red-soft)',
+                color: roomUploadMsg.startsWith('✓') ? 'var(--green)' : 'var(--red)',
+                fontFamily: 'JetBrains Mono, monospace',
+              }}>
+                {roomUploadMsg}
+              </div>
+            )}
+
+            {roomStatus.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '28px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                Upload the Opera HK All Status TXT to populate today&apos;s room board.
+              </div>
+            ) : (() => {
+              // Group rooms
+              const groups: { label: string; rooms: typeof roomStatus }[] = [];
+              if (roomView === 'status') {
+                const deps = roomStatus.filter(r => r.hskStatus === 'DEP' || r.hskStatus === 'OUT');
+                const stas = roomStatus.filter(r => r.hskStatus === 'STA');
+                if (deps.length) groups.push({ label: `Departures (${deps.length})`, rooms: deps });
+                if (stas.length) groups.push({ label: `Stayovers (${stas.length})`, rooms: stas });
+              } else {
+                const floorMap = new Map<string, typeof roomStatus>();
+                roomStatus.forEach(r => {
+                  const f = r.floor.padStart(2, '0');
+                  if (!floorMap.has(f)) floorMap.set(f, []);
+                  floorMap.get(f)!.push(r);
+                });
+                [...floorMap.entries()].sort(([a],[b]) => a.localeCompare(b)).forEach(([floor, rooms]) => {
+                  groups.push({ label: `Floor ${parseInt(floor)} (${rooms.length} rooms)`, rooms });
+                });
+              }
+
+              return (
+                <div>
+                  {groups.map(group => (
+                    <div key={group.label} style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase',
+                        letterSpacing: '0.08em', fontFamily: 'JetBrains Mono, monospace', marginBottom: 8 }}>
+                        {group.label}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+                        {group.rooms.map(room => {
+                          const isDep = room.hskStatus === 'DEP' || room.hskStatus === 'OUT';
+                          return (
+                            <div key={room.room} style={{
+                              padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                              background: isDep ? 'var(--red-soft)' : 'var(--hover-bg)',
+                              borderLeftWidth: 3,
+                              borderLeftColor: isDep ? 'var(--red)' : 'var(--blue)',
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                                  {room.room}
+                                </span>
+                                <span style={{
+                                  fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 3,
+                                  background: isDep ? 'var(--red)' : 'var(--blue)',
+                                  color: '#fff', fontFamily: 'JetBrains Mono, monospace',
+                                }}>
+                                  {isDep ? 'DEP' : 'STA'}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--text)', fontWeight: 500, marginBottom: 2,
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {room.guestName || '—'}
+                              </div>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                                  {room.roomType}
+                                </span>
+                                {room.vip && (
+                                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--gold)',
+                                    fontFamily: 'JetBrains Mono, monospace' }}>
+                                    ★ {room.vip}
+                                  </span>
+                                )}
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                                  {room.adults}A{room.children > 0 ? `+${room.children}C` : ''}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* ── PHONE ASSIGNMENTS ─────────────────────────────────────────── */}
 
           <div style={{
             display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12,
