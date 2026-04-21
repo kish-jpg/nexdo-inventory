@@ -181,6 +181,26 @@ async function sheetsUpdate(range: string, row: (string | number | null)[]): Pro
   invalidateCache();
 }
 
+/** Write multiple rows to an exact range using PUT — more reliable than :append for bulk inserts */
+async function sheetsWriteRows(range: string, rows: (string | number | null)[][]): Promise<void> {
+  if (rows.length === 0) return;
+  const token = await getAccessToken();
+  const id = getEnv('GOOGLE_SHEET_ID');
+  const res = await fetch(
+    `${BASE}/${id}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: rows.map(row => row.map(v => v == null ? '' : String(v))) }),
+    }
+  );
+  if (!res.ok) {
+    const e = await res.json();
+    throw new Error(`Sheets write error: ${JSON.stringify(e)}`);
+  }
+  invalidateCache();
+}
+
 async function sheetsClear(range: string): Promise<void> {
   const token = await getAccessToken();
   const id = getEnv('GOOGLE_SHEET_ID');
@@ -1885,20 +1905,24 @@ export async function getProjectsDashboard() {
 export async function batchSaveOccupancyLogs(logs: OccupancyInput[]): Promise<number> {
   if (logs.length === 0) return 0;
 
-  // Read existing dates so we can skip duplicates
+  // Read existing sheet to find duplicate dates and next available row
   const existing = await sheetsGet('Occupancy!A:B');
   const existingDates = new Set(existing.slice(1).map(r => r[1] ?? ''));
 
-  // Determine starting ID
+  // Next ID = max existing ID + 1
   const ids = existing.slice(1).map(r => parseInt(r[0] ?? '0')).filter(n => !isNaN(n) && n > 0);
   let nextIdVal = ids.length === 0 ? 1 : Math.max(...ids) + 1;
+
+  // Next empty row in sheet (1-indexed): header is row 1, existing data fills rows 2..N
+  // existing.length includes the header row, so next data row = existing.length + 1
+  const startRow = existing.length + 1;
 
   const timestamp = new Date().toISOString();
   const rows: (string | number | null)[][] = [];
 
   for (const log of logs) {
     if (existingDates.has(log.date)) continue; // skip duplicates
-    const row: (string | number | null)[] = [
+    rows.push([
       nextIdVal++,
       log.date,
       log.occupiedRooms,
@@ -1915,11 +1939,14 @@ export async function batchSaveOccupancyLogs(logs: OccupancyInput[]): Promise<nu
       log.adr ?? '',
       log.roomRevenue ?? '',
       log.source ?? 'Opera-Import',
-    ];
-    rows.push(row);
+    ]);
   }
 
   if (rows.length === 0) return 0;
-  await sheetsBatchAppend('Occupancy', rows);
+
+  // Write to exact computed range using PUT — avoids :append table-detection issues
+  const endRow = startRow + rows.length - 1;
+  const range = `Occupancy!A${startRow}:P${endRow}`;
+  await sheetsWriteRows(range, rows);
   return rows.length;
 }
