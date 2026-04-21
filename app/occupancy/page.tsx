@@ -32,11 +32,12 @@ export default function OccupancyPage() {
   const [uploadMsg, setUploadMsg] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Load occupancy data
-  async function loadData() {
+  // Load occupancy data — pass fresh=1 to bypass server-side cache
+  async function loadData(fresh = false) {
     try {
       setLoading(true);
-      const res = await fetch('/api/occupancy/data');
+      const url = fresh ? '/api/occupancy/data?fresh=1' : '/api/occupancy/data';
+      const res = await fetch(url);
       const json = await res.json();
       if (json.data) {
         setData(json.data); // Already sorted by API (newest first)
@@ -69,7 +70,8 @@ export default function OccupancyPage() {
       const json = await res.json();
       if (res.ok) {
         setUploadMsg(`✓ ${json.message}`);
-        await loadData();
+        // Use fresh=1 to bust any cached data from before the upload
+        await loadData(true);
       } else {
         setUploadMsg(`✗ ${json.error}`);
       }
