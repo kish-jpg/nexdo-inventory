@@ -1075,43 +1075,86 @@ export async function getNexDoDashboardStats() {
 // Occupancy & Consumption Reports
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const OCCUPANCY_HEADERS = ['id', 'date', 'occupiedRooms', 'totalRooms', 'notes', 'timestamp'];
+// Extended schema: cols A-F are legacy (backward-compatible), G-P are Opera-style fields.
+const OCCUPANCY_HEADERS = [
+  'id', 'date', 'occupiedRooms', 'totalRooms', 'notes', 'timestamp',
+  'arrivals', 'departures', 'stayovers', 'houseUse', 'dayUse', 'noShow',
+  'ooo', 'adr', 'roomRevenue', 'source',
+];
 const TOTAL_ROOMS = 322;
 
 export type OccupancyLog = {
   id: number; date: string; occupiedRooms: number;
   totalRooms: number; notes: string; timestamp: string;
   occupancyPct: number;
+  // Extended (optional for backward-compat with old rows)
+  arrivals?: number; departures?: number; stayovers?: number;
+  houseUse?: number; dayUse?: number; noShow?: number; ooo?: number;
+  adr?: number | null; roomRevenue?: number | null;
+  source?: string; // "Actual" | "Forecast" | "Opera-Auto"
 };
 
 export async function initOccupancySheet(): Promise<void> {
   await ensureSheet('Occupancy');
-  await sheetsUpdate('Occupancy!A1:F1', OCCUPANCY_HEADERS);
+  await sheetsUpdate('Occupancy!A1:P1', OCCUPANCY_HEADERS);
 }
 
-export async function saveOccupancyLog(log: { date: string; occupiedRooms: number; notes?: string }): Promise<OccupancyLog> {
-  // Upsert: if entry exists for this date, update it; otherwise append
-  const rows = await sheetsGet('Occupancy!A:F');
+export type OccupancyInput = {
+  date: string;
+  occupiedRooms: number;
+  notes?: string;
+  arrivals?: number; departures?: number; stayovers?: number;
+  houseUse?: number; dayUse?: number; noShow?: number; ooo?: number;
+  adr?: number | null; roomRevenue?: number | null;
+  source?: string;
+};
+
+export async function saveOccupancyLog(log: OccupancyInput): Promise<OccupancyLog> {
+  // Upsert by date
+  const rows = await sheetsGet('Occupancy!A:P');
   const existing = rows.slice(1).findIndex(r => r[1] === log.date);
   const id = existing >= 0 ? ni(rows[existing + 1][0]) : await nextId('Occupancy');
   const timestamp = new Date().toISOString();
-  const row = [id, log.date, log.occupiedRooms, TOTAL_ROOMS, log.notes ?? '', timestamp];
+  const row: (string | number | null)[] = [
+    id, log.date, log.occupiedRooms, TOTAL_ROOMS, log.notes ?? '', timestamp,
+    log.arrivals ?? '', log.departures ?? '', log.stayovers ?? '',
+    log.houseUse ?? '', log.dayUse ?? '', log.noShow ?? '', log.ooo ?? '',
+    log.adr ?? '', log.roomRevenue ?? '', log.source ?? 'Actual',
+  ];
   if (existing >= 0) {
-    await sheetsUpdate(`Occupancy!A${existing + 2}:F${existing + 2}`, row);
+    await sheetsUpdate(`Occupancy!A${existing + 2}:P${existing + 2}`, row);
   } else {
     await sheetsAppend('Occupancy', row);
   }
   invalidateCache();
-  return { id, date: log.date, occupiedRooms: log.occupiedRooms, totalRooms: TOTAL_ROOMS, notes: log.notes ?? '', timestamp, occupancyPct: Math.round((log.occupiedRooms / TOTAL_ROOMS) * 100) };
+  return {
+    id, date: log.date, occupiedRooms: log.occupiedRooms,
+    totalRooms: TOTAL_ROOMS, notes: log.notes ?? '', timestamp,
+    occupancyPct: Math.round((log.occupiedRooms / TOTAL_ROOMS) * 100),
+    arrivals: log.arrivals, departures: log.departures, stayovers: log.stayovers,
+    houseUse: log.houseUse, dayUse: log.dayUse, noShow: log.noShow, ooo: log.ooo,
+    adr: log.adr ?? null, roomRevenue: log.roomRevenue ?? null,
+    source: log.source ?? 'Actual',
+  };
 }
 
 export async function getOccupancyLogs(limit = 90): Promise<OccupancyLog[]> {
-  const rows = await sheetsGet('Occupancy!A:F');
+  const rows = await sheetsGet('Occupancy!A:P');
   if (rows.length <= 1) return [];
   return rows.slice(1).filter(r => r[0]).map(r => ({
     id: ni(r[0]), date: r[1] ?? '', occupiedRooms: ni(r[2]),
     totalRooms: ni(r[3]) || TOTAL_ROOMS, notes: r[4] ?? '', timestamp: r[5] ?? '',
     occupancyPct: Math.round((ni(r[2]) / (ni(r[3]) || TOTAL_ROOMS)) * 100),
+    arrivals: r[6] ? ni(r[6]) : undefined,
+    departures: r[7] ? ni(r[7]) : undefined,
+    stayovers: r[8] ? ni(r[8]) : undefined,
+    houseUse: r[9] ? ni(r[9]) : undefined,
+    dayUse: r[10] ? ni(r[10]) : undefined,
+    noShow: r[11] ? ni(r[11]) : undefined,
+    ooo: r[12] ? ni(r[12]) : undefined,
+    adr: n(r[13]),
+    roomRevenue: n(r[14]),
+    source: r[15] || 'Actual',
   })).sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
 }
 
@@ -1213,4 +1256,619 @@ export async function seedNexDoItems(items: NexDoSeedItem[]): Promise<void> {
     i + 1, i + 1, item.name, item.stock, 'stocktake', 'Initial NexDo seed', '', now,
   ]);
   await sheetsBatchAppend('NexDoTransactions', txRows);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Housekeeping: Roster, Phone Assignments, Daily Performance
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// 15 phones: 1-3 supervisors, 4-15 housekeepers (per HOMS design)
+export const HSK_PHONE_COUNT = 15;
+
+const HSK_ROSTER_HEADERS = ['id', 'phoneId', 'name', 'role', 'active', 'notes', 'timestamp'];
+const HSK_ASSIGN_HEADERS = ['id', 'date', 'phoneId', 'housekeeperName', 'shift', 'startTime', 'endTime', 'notes', 'timestamp'];
+const HSK_PERF_HEADERS   = ['id', 'date', 'phoneId', 'housekeeperName', 'roomsAssigned', 'departuresDone', 'stayoversDone', 'roomsCleaned', 'minutesWorked', 'avgMinsPerRoom', 'qualityScore', 'notes', 'source', 'timestamp'];
+
+export type HSKRosterEntry = {
+  id: number; phoneId: number; name: string; role: string;
+  active: boolean; notes: string; timestamp: string;
+};
+
+export type HSKAssignment = {
+  id: number; date: string; phoneId: number; housekeeperName: string;
+  shift: string; startTime: string; endTime: string; notes: string; timestamp: string;
+};
+
+export type HSKPerformanceEntry = {
+  id: number; date: string; phoneId: number; housekeeperName: string;
+  roomsAssigned: number; departuresDone: number; stayoversDone: number;
+  roomsCleaned: number; minutesWorked: number; avgMinsPerRoom: number | null;
+  qualityScore: number | null; notes: string; source: string; timestamp: string;
+};
+
+export async function initHSKSheets(): Promise<void> {
+  await ensureSheet('HSKRoster');
+  await ensureSheet('HSKAssignments');
+  await ensureSheet('HSKPerformance');
+  await sheetsUpdate('HSKRoster!A1:G1', HSK_ROSTER_HEADERS);
+  await sheetsUpdate('HSKAssignments!A1:I1', HSK_ASSIGN_HEADERS);
+  await sheetsUpdate('HSKPerformance!A1:N1', HSK_PERF_HEADERS);
+}
+
+// ─── Roster ───────────────────────────────────────────────────────────────────
+
+export async function getHSKRoster(): Promise<HSKRosterEntry[]> {
+  const rows = await sheetsGet('HSKRoster!A:G');
+  if (rows.length <= 1) return [];
+  return rows.slice(1).filter(r => r[0]).map(r => ({
+    id: ni(r[0]), phoneId: ni(r[1]), name: r[2] ?? '',
+    role: r[3] || 'housekeeper',
+    active: (r[4] ?? 'true').toString().toLowerCase() !== 'false',
+    notes: r[5] ?? '', timestamp: r[6] ?? '',
+  })).sort((a, b) => a.phoneId - b.phoneId);
+}
+
+export async function upsertHSKRosterEntry(entry: {
+  phoneId: number; name: string; role?: string; active?: boolean; notes?: string;
+}): Promise<HSKRosterEntry> {
+  const rows = await sheetsGet('HSKRoster!A:G');
+  const existing = rows.slice(1).findIndex(r => ni(r[1]) === entry.phoneId);
+  const id = existing >= 0 ? ni(rows[existing + 1][0]) : await nextId('HSKRoster');
+  const timestamp = new Date().toISOString();
+  const row = [
+    id, entry.phoneId, entry.name, entry.role ?? 'housekeeper',
+    entry.active === false ? 'false' : 'true', entry.notes ?? '', timestamp,
+  ];
+  if (existing >= 0) {
+    await sheetsUpdate(`HSKRoster!A${existing + 2}:G${existing + 2}`, row);
+  } else {
+    await sheetsAppend('HSKRoster', row);
+  }
+  invalidateCache();
+  return {
+    id, phoneId: entry.phoneId, name: entry.name,
+    role: entry.role ?? 'housekeeper', active: entry.active !== false,
+    notes: entry.notes ?? '', timestamp,
+  };
+}
+
+// ─── Daily Phone Assignments ──────────────────────────────────────────────────
+
+export async function getHSKAssignments(date?: string, limit = 200): Promise<HSKAssignment[]> {
+  const rows = await sheetsGet('HSKAssignments!A:I');
+  if (rows.length <= 1) return [];
+  let entries = rows.slice(1).filter(r => r[0]).map(r => ({
+    id: ni(r[0]), date: r[1] ?? '', phoneId: ni(r[2]),
+    housekeeperName: r[3] ?? '', shift: r[4] || 'AM',
+    startTime: r[5] ?? '', endTime: r[6] ?? '', notes: r[7] ?? '',
+    timestamp: r[8] ?? '',
+  }));
+  if (date) entries = entries.filter(e => e.date === date);
+  return entries.sort((a, b) => b.date.localeCompare(a.date) || a.phoneId - b.phoneId).slice(0, limit);
+}
+
+export async function saveHSKAssignment(a: {
+  date: string; phoneId: number; housekeeperName: string;
+  shift?: string; startTime?: string; endTime?: string; notes?: string;
+}): Promise<HSKAssignment> {
+  // Upsert by (date, phoneId)
+  const rows = await sheetsGet('HSKAssignments!A:I');
+  const existing = rows.slice(1).findIndex(r => r[1] === a.date && ni(r[2]) === a.phoneId);
+  const id = existing >= 0 ? ni(rows[existing + 1][0]) : await nextId('HSKAssignments');
+  const timestamp = new Date().toISOString();
+  const row = [
+    id, a.date, a.phoneId, a.housekeeperName,
+    a.shift ?? 'AM', a.startTime ?? '', a.endTime ?? '', a.notes ?? '', timestamp,
+  ];
+  if (existing >= 0) {
+    await sheetsUpdate(`HSKAssignments!A${existing + 2}:I${existing + 2}`, row);
+  } else {
+    await sheetsAppend('HSKAssignments', row);
+  }
+  invalidateCache();
+  return {
+    id, date: a.date, phoneId: a.phoneId, housekeeperName: a.housekeeperName,
+    shift: a.shift ?? 'AM', startTime: a.startTime ?? '',
+    endTime: a.endTime ?? '', notes: a.notes ?? '', timestamp,
+  };
+}
+
+export async function deleteHSKAssignment(id: number): Promise<boolean> {
+  const row = await findRowByID('HSKAssignments', id);
+  if (!row) return false;
+  await sheetsClear(`HSKAssignments!A${row}:I${row}`);
+  invalidateCache();
+  return true;
+}
+
+// ─── Daily Performance Entries ────────────────────────────────────────────────
+
+export async function getHSKPerformance(opts?: {
+  date?: string; phoneId?: number; fromDate?: string; toDate?: string; limit?: number;
+}): Promise<HSKPerformanceEntry[]> {
+  const rows = await sheetsGet('HSKPerformance!A:N');
+  if (rows.length <= 1) return [];
+  let entries = rows.slice(1).filter(r => r[0]).map(r => {
+    const roomsCleaned = ni(r[7]);
+    const minutes = ni(r[8]);
+    const avgM = n(r[9]);
+    return {
+      id: ni(r[0]), date: r[1] ?? '', phoneId: ni(r[2]),
+      housekeeperName: r[3] ?? '',
+      roomsAssigned: ni(r[4]), departuresDone: ni(r[5]),
+      stayoversDone: ni(r[6]), roomsCleaned,
+      minutesWorked: minutes,
+      avgMinsPerRoom: avgM ?? (roomsCleaned > 0 ? +(minutes / roomsCleaned).toFixed(1) : null),
+      qualityScore: n(r[10]),
+      notes: r[11] ?? '', source: r[12] || 'Manual', timestamp: r[13] ?? '',
+    };
+  });
+  if (opts?.date) entries = entries.filter(e => e.date === opts.date);
+  if (opts?.phoneId) entries = entries.filter(e => e.phoneId === opts.phoneId);
+  if (opts?.fromDate) entries = entries.filter(e => e.date >= opts.fromDate!);
+  if (opts?.toDate) entries = entries.filter(e => e.date <= opts.toDate!);
+  return entries
+    .sort((a, b) => b.date.localeCompare(a.date) || a.phoneId - b.phoneId)
+    .slice(0, opts?.limit ?? 500);
+}
+
+export async function saveHSKPerformance(p: {
+  date: string; phoneId: number; housekeeperName: string;
+  roomsAssigned: number; departuresDone: number; stayoversDone: number;
+  minutesWorked: number; qualityScore?: number | null; notes?: string; source?: string;
+}): Promise<HSKPerformanceEntry> {
+  // Upsert by (date, phoneId)
+  const rows = await sheetsGet('HSKPerformance!A:N');
+  const existing = rows.slice(1).findIndex(r => r[1] === p.date && ni(r[2]) === p.phoneId);
+  const id = existing >= 0 ? ni(rows[existing + 1][0]) : await nextId('HSKPerformance');
+  const timestamp = new Date().toISOString();
+  const roomsCleaned = p.departuresDone + p.stayoversDone;
+  const avgMinsPerRoom = roomsCleaned > 0 ? +(p.minutesWorked / roomsCleaned).toFixed(1) : 0;
+  const row = [
+    id, p.date, p.phoneId, p.housekeeperName,
+    p.roomsAssigned, p.departuresDone, p.stayoversDone, roomsCleaned,
+    p.minutesWorked, avgMinsPerRoom,
+    p.qualityScore ?? '', p.notes ?? '', p.source ?? 'Manual', timestamp,
+  ];
+  if (existing >= 0) {
+    await sheetsUpdate(`HSKPerformance!A${existing + 2}:N${existing + 2}`, row);
+  } else {
+    await sheetsAppend('HSKPerformance', row);
+  }
+  invalidateCache();
+  return {
+    id, date: p.date, phoneId: p.phoneId, housekeeperName: p.housekeeperName,
+    roomsAssigned: p.roomsAssigned, departuresDone: p.departuresDone,
+    stayoversDone: p.stayoversDone, roomsCleaned,
+    minutesWorked: p.minutesWorked, avgMinsPerRoom,
+    qualityScore: p.qualityScore ?? null, notes: p.notes ?? '',
+    source: p.source ?? 'Manual', timestamp,
+  };
+}
+
+export async function deleteHSKPerformance(id: number): Promise<boolean> {
+  const row = await findRowByID('HSKPerformance', id);
+  if (!row) return false;
+  await sheetsClear(`HSKPerformance!A${row}:N${row}`);
+  invalidateCache();
+  return true;
+}
+
+// ─── Aggregated KPIs: performance rolled up per day ───────────────────────────
+
+export async function getHSKDailyKPIs(days = 30): Promise<Array<{
+  date: string;
+  entries: number;
+  teamSize: number;
+  totalRoomsAssigned: number;
+  totalRoomsCleaned: number;
+  totalDepartures: number;
+  totalStayovers: number;
+  totalMinutes: number;
+  avgRoomsPerHK: number;
+  avgMinsPerRoom: number | null;
+  avgQuality: number | null;
+  occupiedRooms: number | null;
+  occupancyPct: number | null;
+  efficiency: number | null; // rooms per hour
+}>> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const [perf, occ] = await Promise.all([
+    getHSKPerformance({ fromDate: cutoffStr, limit: 5000 }),
+    getOccupancyLogs(days + 5),
+  ]);
+
+  // Group performance by date
+  const byDate = new Map<string, HSKPerformanceEntry[]>();
+  for (const p of perf) {
+    const arr = byDate.get(p.date) ?? [];
+    arr.push(p);
+    byDate.set(p.date, arr);
+  }
+  const occByDate = new Map(occ.map(o => [o.date, o]));
+
+  return Array.from(byDate.entries()).map(([date, entries]) => {
+    const totalRoomsAssigned = entries.reduce((s, e) => s + (e.roomsAssigned || 0), 0);
+    const totalRoomsCleaned  = entries.reduce((s, e) => s + e.roomsCleaned, 0);
+    const totalDepartures    = entries.reduce((s, e) => s + e.departuresDone, 0);
+    const totalStayovers     = entries.reduce((s, e) => s + e.stayoversDone, 0);
+    const totalMinutes       = entries.reduce((s, e) => s + e.minutesWorked, 0);
+    const qualities          = entries.map(e => e.qualityScore).filter((v): v is number => v != null);
+    const occEntry           = occByDate.get(date);
+    return {
+      date,
+      entries: entries.length,
+      teamSize: entries.length,
+      totalRoomsAssigned,
+      totalRoomsCleaned, totalDepartures, totalStayovers, totalMinutes,
+      avgRoomsPerHK: entries.length > 0 ? +(totalRoomsCleaned / entries.length).toFixed(1) : 0,
+      avgMinsPerRoom: totalRoomsCleaned > 0 ? +(totalMinutes / totalRoomsCleaned).toFixed(1) : null,
+      avgQuality: qualities.length > 0 ? +(qualities.reduce((a, b) => a + b, 0) / qualities.length).toFixed(1) : null,
+      occupiedRooms: occEntry ? occEntry.occupiedRooms : null,
+      occupancyPct: occEntry ? occEntry.occupancyPct : null,
+      efficiency: totalMinutes > 0 ? +((totalRoomsCleaned * 60) / totalMinutes).toFixed(2) : null,
+    };
+  }).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Projects: project management module
+// ════════════════════════════════════════════════════════════════════════════════
+
+const PROJECT_HEADERS = [
+  'id', 'name', 'client', 'owner', 'status', 'priority',
+  'startDate', 'dueDate', 'progress', 'summary', 'notes', 'lastUpdated',
+];
+
+const PROJECT_TASK_HEADERS = [
+  'id', 'projectId', 'projectName', 'title', 'owner', 'status',
+  'priority', 'dueDate', 'notes', 'completedAt', 'lastUpdated',
+];
+
+export type ProjectRecord = {
+  id: number;
+  name: string;
+  client: string;
+  owner: string;
+  status: string;
+  priority: string;
+  startDate: string | null;
+  dueDate: string | null;
+  progress: number;
+  summary: string;
+  notes: string;
+  lastUpdated: string;
+};
+
+export type ProjectTaskRecord = {
+  id: number;
+  projectId: number;
+  projectName: string;
+  title: string;
+  owner: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+  notes: string;
+  completedAt: string | null;
+  lastUpdated: string;
+};
+
+function clampProgress(value: number): number {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function normalizeDate(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function projectRowToRecord(row: string[]): ProjectRecord {
+  return {
+    id: ni(row[0]),
+    name: row[1] ?? '',
+    client: row[2] ?? '',
+    owner: row[3] ?? '',
+    status: row[4] || 'Planning',
+    priority: row[5] || 'Medium',
+    startDate: normalizeDate(row[6]),
+    dueDate: normalizeDate(row[7]),
+    progress: clampProgress(ni(row[8])),
+    summary: row[9] ?? '',
+    notes: row[10] ?? '',
+    lastUpdated: row[11] || new Date().toISOString(),
+  };
+}
+
+function projectToRow(project: ProjectRecord): (string | number | null)[] {
+  return [
+    project.id,
+    project.name,
+    project.client,
+    project.owner,
+    project.status,
+    project.priority,
+    project.startDate ?? '',
+    project.dueDate ?? '',
+    clampProgress(project.progress),
+    project.summary,
+    project.notes,
+    new Date().toISOString(),
+  ];
+}
+
+function taskRowToRecord(row: string[]): ProjectTaskRecord {
+  return {
+    id: ni(row[0]),
+    projectId: ni(row[1]),
+    projectName: row[2] ?? '',
+    title: row[3] ?? '',
+    owner: row[4] ?? '',
+    status: row[5] || 'Todo',
+    priority: row[6] || 'Medium',
+    dueDate: normalizeDate(row[7]),
+    notes: row[8] ?? '',
+    completedAt: normalizeDate(row[9]),
+    lastUpdated: row[10] || new Date().toISOString(),
+  };
+}
+
+function taskToRow(task: ProjectTaskRecord): (string | number | null)[] {
+  return [
+    task.id,
+    task.projectId,
+    task.projectName,
+    task.title,
+    task.owner,
+    task.status,
+    task.priority,
+    task.dueDate ?? '',
+    task.notes,
+    task.completedAt ?? '',
+    new Date().toISOString(),
+  ];
+}
+
+export async function initProjectSheets(): Promise<void> {
+  await ensureSheet('Projects');
+  await ensureSheet('ProjectTasks');
+  await sheetsUpdate('Projects!A1:L1', PROJECT_HEADERS);
+  await sheetsUpdate('ProjectTasks!A1:K1', PROJECT_TASK_HEADERS);
+}
+
+export async function getProjects(): Promise<ProjectRecord[]> {
+  const rows = await sheetsGet('Projects!A:L');
+  if (rows.length <= 1) return [];
+  return rows
+    .slice(1)
+    .filter(r => r[0] && r[1])
+    .map(projectRowToRecord)
+    .sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated));
+}
+
+export async function getProjectById(id: number): Promise<ProjectRecord | null> {
+  const projects = await getProjects();
+  return projects.find(project => project.id === id) ?? null;
+}
+
+export async function createProject(input: {
+  name: string;
+  client?: string;
+  owner?: string;
+  status?: string;
+  priority?: string;
+  startDate?: string | null;
+  dueDate?: string | null;
+  progress?: number;
+  summary?: string;
+  notes?: string;
+}): Promise<ProjectRecord> {
+  const id = await nextId('Projects');
+  const project: ProjectRecord = {
+    id,
+    name: input.name.trim(),
+    client: input.client?.trim() ?? '',
+    owner: input.owner?.trim() ?? '',
+    status: input.status?.trim() || 'Planning',
+    priority: input.priority?.trim() || 'Medium',
+    startDate: normalizeDate(input.startDate),
+    dueDate: normalizeDate(input.dueDate),
+    progress: clampProgress(Number(input.progress ?? 0)),
+    summary: input.summary?.trim() ?? '',
+    notes: input.notes?.trim() ?? '',
+    lastUpdated: new Date().toISOString(),
+  };
+  await sheetsAppend('Projects', projectToRow(project));
+  invalidateCache();
+  return project;
+}
+
+export async function updateProject(id: number, input: Partial<Omit<ProjectRecord, 'id' | 'lastUpdated'>>): Promise<ProjectRecord | null> {
+  const existing = await getProjectById(id);
+  if (!existing) return null;
+  const rowNumber = await findRowByID('Projects', id);
+  if (!rowNumber) return null;
+
+  const project: ProjectRecord = {
+    ...existing,
+    name: input.name != null ? input.name.trim() : existing.name,
+    client: input.client != null ? input.client.trim() : existing.client,
+    owner: input.owner != null ? input.owner.trim() : existing.owner,
+    status: input.status != null ? input.status.trim() : existing.status,
+    priority: input.priority != null ? input.priority.trim() : existing.priority,
+    startDate: input.startDate !== undefined ? normalizeDate(input.startDate) : existing.startDate,
+    dueDate: input.dueDate !== undefined ? normalizeDate(input.dueDate) : existing.dueDate,
+    progress: input.progress != null ? clampProgress(Number(input.progress)) : existing.progress,
+    summary: input.summary != null ? input.summary.trim() : existing.summary,
+    notes: input.notes != null ? input.notes.trim() : existing.notes,
+    lastUpdated: new Date().toISOString(),
+  };
+
+  await sheetsUpdate(`Projects!A${rowNumber}:L${rowNumber}`, projectToRow(project));
+  invalidateCache();
+  return project;
+}
+
+export async function getProjectTasks(opts?: {
+  projectId?: number;
+  status?: string;
+  limit?: number;
+}): Promise<ProjectTaskRecord[]> {
+  const rows = await sheetsGet('ProjectTasks!A:K');
+  if (rows.length <= 1) return [];
+  let tasks = rows
+    .slice(1)
+    .filter(r => r[0] && r[3])
+    .map(taskRowToRecord);
+
+  if (opts?.projectId) tasks = tasks.filter(task => task.projectId === opts.projectId);
+  if (opts?.status) tasks = tasks.filter(task => task.status === opts.status);
+
+  tasks = tasks.sort((a, b) => {
+    const aDone = a.status === 'Done' ? 1 : 0;
+    const bDone = b.status === 'Done' ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    return b.lastUpdated.localeCompare(a.lastUpdated);
+  });
+
+  return tasks.slice(0, opts?.limit ?? 500);
+}
+
+export async function getProjectTaskById(id: number): Promise<ProjectTaskRecord | null> {
+  const tasks = await getProjectTasks();
+  return tasks.find(task => task.id === id) ?? null;
+}
+
+export async function createProjectTask(input: {
+  projectId: number;
+  title: string;
+  owner?: string;
+  status?: string;
+  priority?: string;
+  dueDate?: string | null;
+  notes?: string;
+}): Promise<ProjectTaskRecord> {
+  const project = await getProjectById(input.projectId);
+  if (!project) throw new Error('Project not found');
+
+  const id = await nextId('ProjectTasks');
+  const now = new Date().toISOString();
+  const status = input.status?.trim() || 'Todo';
+  const task: ProjectTaskRecord = {
+    id,
+    projectId: input.projectId,
+    projectName: project.name,
+    title: input.title.trim(),
+    owner: input.owner?.trim() ?? '',
+    status,
+    priority: input.priority?.trim() || 'Medium',
+    dueDate: normalizeDate(input.dueDate),
+    notes: input.notes?.trim() ?? '',
+    completedAt: status === 'Done' ? now : null,
+    lastUpdated: now,
+  };
+
+  await sheetsAppend('ProjectTasks', taskToRow(task));
+  invalidateCache();
+  await recomputeProjectProgress(task.projectId);
+  return task;
+}
+
+export async function updateProjectTask(id: number, input: Partial<Omit<ProjectTaskRecord, 'id' | 'projectId' | 'projectName' | 'lastUpdated'>>): Promise<ProjectTaskRecord | null> {
+  const existing = await getProjectTaskById(id);
+  if (!existing) return null;
+  const rowNumber = await findRowByID('ProjectTasks', id);
+  if (!rowNumber) return null;
+
+  const nextStatus = input.status != null ? input.status.trim() : existing.status;
+  const completedAt = nextStatus === 'Done'
+    ? (existing.completedAt ?? new Date().toISOString())
+    : null;
+
+  const task: ProjectTaskRecord = {
+    ...existing,
+    title: input.title != null ? input.title.trim() : existing.title,
+    owner: input.owner != null ? input.owner.trim() : existing.owner,
+    status: nextStatus,
+    priority: input.priority != null ? input.priority.trim() : existing.priority,
+    dueDate: input.dueDate !== undefined ? normalizeDate(input.dueDate) : existing.dueDate,
+    notes: input.notes != null ? input.notes.trim() : existing.notes,
+    completedAt,
+    lastUpdated: new Date().toISOString(),
+  };
+
+  await sheetsUpdate(`ProjectTasks!A${rowNumber}:K${rowNumber}`, taskToRow(task));
+  invalidateCache();
+  await recomputeProjectProgress(task.projectId);
+  return task;
+}
+
+async function recomputeProjectProgress(projectId: number): Promise<void> {
+  const [project, tasks] = await Promise.all([
+    getProjectById(projectId),
+    getProjectTasks({ projectId }),
+  ]);
+  if (!project) return;
+  const progress = tasks.length === 0
+    ? project.progress
+    : clampProgress((tasks.filter(task => task.status === 'Done').length / tasks.length) * 100);
+  await updateProject(projectId, { progress });
+}
+
+function isOverdue(dueDate: string | null, status: string): boolean {
+  if (!dueDate || status === 'Done' || status === 'Completed') return false;
+  return dueDate < new Date().toISOString().slice(0, 10);
+}
+
+export async function getProjectsDashboard() {
+  const [projects, tasks] = await Promise.all([getProjects(), getProjectTasks()]);
+
+  const activeProjects = projects.filter(project => !['Done', 'Completed', 'Archived'].includes(project.status));
+  const overdueTasks = tasks.filter(task => isOverdue(task.dueDate, task.status));
+  const doneTasks = tasks.filter(task => task.status === 'Done').length;
+  const inFlightTasks = tasks.filter(task => ['Todo', 'In Progress', 'Blocked'].includes(task.status)).length;
+  const avgProgress = projects.length > 0
+    ? Math.round(projects.reduce((sum, project) => sum + project.progress, 0) / projects.length)
+    : 0;
+
+  const projectSummaries = projects.map(project => {
+    const projectTasks = tasks.filter(task => task.projectId === project.id);
+    const completed = projectTasks.filter(task => task.status === 'Done').length;
+    const overdue = projectTasks.filter(task => isOverdue(task.dueDate, task.status)).length;
+    return {
+      ...project,
+      taskCount: projectTasks.length,
+      completedTasks: completed,
+      overdueTasks: overdue,
+      openTasks: projectTasks.length - completed,
+    };
+  }).sort((a, b) => {
+    const aOverdue = a.overdueTasks > 0 ? 1 : 0;
+    const bOverdue = b.overdueTasks > 0 ? 1 : 0;
+    if (aOverdue !== bOverdue) return bOverdue - aOverdue;
+    return b.lastUpdated.localeCompare(a.lastUpdated);
+  });
+
+  const recentTasks = [...tasks]
+    .sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated))
+    .slice(0, 12);
+
+  return {
+    kpis: {
+      totalProjects: projects.length,
+      activeProjects: activeProjects.length,
+      totalTasks: tasks.length,
+      inFlightTasks,
+      overdueTasks: overdueTasks.length,
+      avgProgress,
+      doneTasks,
+    },
+    projects: projectSummaries,
+    recentTasks,
+  };
 }

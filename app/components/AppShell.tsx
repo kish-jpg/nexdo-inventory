@@ -66,6 +66,15 @@ const LaundryIcon = () => (
   </svg>
 );
 
+const HskIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21h18"/>
+    <path d="M5 21V7l7-4 7 4v14"/>
+    <path d="M9 21v-8h6v8"/>
+    <circle cx="12" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+  </svg>
+);
+
 const NexDoIcon = () => (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
@@ -80,6 +89,14 @@ const ReportsIcon = () => (
     <line x1="12" y1="20" x2="12" y2="4"/>
     <line x1="6" y1="20" x2="6" y2="14"/>
     <line x1="2" y1="20" x2="22" y2="20"/>
+  </svg>
+);
+
+const ProjectsIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    <path d="M8 12h8"/>
+    <path d="M8 16h5"/>
   </svg>
 );
 
@@ -112,7 +129,9 @@ const ChatIcon = () => (
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard',  href: '/',          Icon: DashboardIcon },
   { id: 'inventory', label: 'Inventory',  href: '/inventory', Icon: PackageIcon   },
+  { id: 'projects',  label: 'Projects',   href: '/projects',  Icon: ProjectsIcon  },
   { id: 'laundry',   label: 'Laundry',    href: '/laundry',   Icon: LaundryIcon   },
+  { id: 'hsk',       label: 'Housekeeping', href: '/hsk',     Icon: HskIcon       },
   { id: 'nexdo',     label: 'NexDo',      href: '/nexdo',     Icon: NexDoIcon     },
   { id: 'reports',   label: 'Reports',    href: '/reports',   Icon: ReportsIcon   },
 ];
@@ -155,7 +174,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Determine active nav
   const activePage = pathname === '/' ? 'dashboard'
+    : pathname.startsWith('/projects') ? 'projects'
     : pathname.startsWith('/laundry')  ? 'laundry'
+    : pathname.startsWith('/hsk')      ? 'hsk'
     : pathname.startsWith('/nexdo')    ? 'nexdo'
     : pathname.startsWith('/reports')  ? 'reports'
     : 'inventory';

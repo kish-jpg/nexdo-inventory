@@ -18,10 +18,25 @@ export async function POST(req: NextRequest) {
     if (!body.date || body.occupiedRooms == null) {
       return NextResponse.json({ error: 'date and occupiedRooms required' }, { status: 400 });
     }
+    const numOrUndef = (v: unknown) =>
+      v === undefined || v === null || v === '' ? undefined : Number(v);
+    const numOrNull = (v: unknown) =>
+      v === undefined || v === null || v === '' ? null : Number(v);
+
     const log = await saveOccupancyLog({
       date: body.date,
       occupiedRooms: Math.min(322, Math.max(0, Number(body.occupiedRooms))),
       notes: body.notes ?? '',
+      arrivals: numOrUndef(body.arrivals),
+      departures: numOrUndef(body.departures),
+      stayovers: numOrUndef(body.stayovers),
+      houseUse: numOrUndef(body.houseUse),
+      dayUse: numOrUndef(body.dayUse),
+      noShow: numOrUndef(body.noShow),
+      ooo: numOrUndef(body.ooo),
+      adr: numOrNull(body.adr),
+      roomRevenue: numOrNull(body.roomRevenue),
+      source: body.source ?? 'Actual',
     });
     return NextResponse.json({ log });
   } catch (e: any) {

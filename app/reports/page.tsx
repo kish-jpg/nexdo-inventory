@@ -7,6 +7,9 @@ import { useState, useEffect, useCallback } from 'react';
 type OccupancyLog = {
   id: number; date: string; occupiedRooms: number;
   totalRooms: number; notes: string; occupancyPct: number;
+  arrivals?: number; departures?: number; stayovers?: number;
+  houseUse?: number; dayUse?: number; noShow?: number; ooo?: number;
+  adr?: number | null; roomRevenue?: number | null; source?: string;
 };
 
 type ConsumptionItem = {
@@ -98,6 +101,13 @@ export default function ReportsPage() {
   const [occError, setOccError]       = useState('');
   const [occLogs, setOccLogs]         = useState<OccupancyLog[]>([]);
   const [occLoading, setOccLoading]   = useState(true);
+  const [occExpanded, setOccExpanded] = useState(false);
+  const [occArrivals, setOccArrivals]     = useState<string>('');
+  const [occDepartures, setOccDepartures] = useState<string>('');
+  const [occStayovers, setOccStayovers]   = useState<string>('');
+  const [occOOO, setOccOOO]               = useState<string>('');
+  const [occADR, setOccADR]               = useState<string>('');
+  const [occRevenue, setOccRevenue]       = useState<string>('');
 
   // Consumption tab
   const [window, setWindow]           = useState(30);
@@ -129,8 +139,20 @@ export default function ReportsPage() {
   // Pre-fill today's occupancy if already logged
   useEffect(() => {
     const existing = occLogs.find(l => l.date === occDate);
-    if (existing) setOccRooms(existing.occupiedRooms);
-    else setOccRooms(0);
+    if (existing) {
+      setOccRooms(existing.occupiedRooms);
+      setOccNotes(existing.notes || '');
+      setOccArrivals(existing.arrivals != null ? String(existing.arrivals) : '');
+      setOccDepartures(existing.departures != null ? String(existing.departures) : '');
+      setOccStayovers(existing.stayovers != null ? String(existing.stayovers) : '');
+      setOccOOO(existing.ooo != null ? String(existing.ooo) : '');
+      setOccADR(existing.adr != null ? String(existing.adr) : '');
+      setOccRevenue(existing.roomRevenue != null ? String(existing.roomRevenue) : '');
+    } else {
+      setOccRooms(0); setOccNotes('');
+      setOccArrivals(''); setOccDepartures(''); setOccStayovers('');
+      setOccOOO(''); setOccADR(''); setOccRevenue('');
+    }
   }, [occDate, occLogs]);
 
   async function submitOccupancy(e: React.FormEvent) {
@@ -138,14 +160,25 @@ export default function ReportsPage() {
     if (occRooms <= 0) { setOccError('Enter rooms occupied (1–322).'); return; }
     setOccSaving(true); setOccError('');
     try {
+      const numOrEmpty = (s: string) => s === '' ? undefined : Number(s);
       const res = await fetch('/api/reports/occupancy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: occDate, occupiedRooms: occRooms, notes: occNotes }),
+        body: JSON.stringify({
+          date: occDate,
+          occupiedRooms: occRooms,
+          notes: occNotes,
+          arrivals: numOrEmpty(occArrivals),
+          departures: numOrEmpty(occDepartures),
+          stayovers: numOrEmpty(occStayovers),
+          ooo: numOrEmpty(occOOO),
+          adr: numOrEmpty(occADR),
+          roomRevenue: numOrEmpty(occRevenue),
+          source: 'Manual',
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       setOccSuccess(true); setTimeout(() => setOccSuccess(false), 2500);
-      setOccNotes('');
       await loadOccupancy();
     } catch (e: any) { setOccError(e.message); }
     finally { setOccSaving(false); }
@@ -253,6 +286,65 @@ export default function ReportsPage() {
                     <label className="form-label">Notes (optional)</label>
                     <input className="form-input" placeholder="e.g. event in house, school holidays..." value={occNotes} onChange={e => setOccNotes(e.target.value)} />
                   </div>
+
+                  <button type="button" onClick={() => setOccExpanded(v => !v)}
+                    className="btn btn-ghost btn-sm"
+                    style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12, padding: '8px 12px', fontSize: 12 }}>
+                    <span>{occExpanded ? '− Hide' : '+ Add'} Opera fields (Arrivals · Departures · ADR · OOO)</span>
+                    <span style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10 }}>
+                      {[occArrivals, occDepartures, occStayovers, occOOO, occADR, occRevenue].filter(v => v !== '').length} / 6
+                    </span>
+                  </button>
+
+                  {occExpanded && (
+                    <div style={{ padding: 12, background: 'var(--bg-sub)', borderRadius: 8, marginBottom: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div className="form-row" style={{ marginBottom: 8 }}>
+                          <label className="form-label" style={{ fontSize: 10 }}>Arrivals</label>
+                          <input className="form-input" type="number" min={0} max={322}
+                            value={occArrivals} onChange={e => setOccArrivals(e.target.value)}
+                            style={{ fontFamily: 'JetBrains Mono, monospace', padding: '6px 8px', fontSize: 13 }} />
+                        </div>
+                        <div className="form-row" style={{ marginBottom: 8 }}>
+                          <label className="form-label" style={{ fontSize: 10 }}>Departures</label>
+                          <input className="form-input" type="number" min={0} max={322}
+                            value={occDepartures} onChange={e => setOccDepartures(e.target.value)}
+                            style={{ fontFamily: 'JetBrains Mono, monospace', padding: '6px 8px', fontSize: 13 }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div className="form-row" style={{ marginBottom: 8 }}>
+                          <label className="form-label" style={{ fontSize: 10 }}>Stayovers</label>
+                          <input className="form-input" type="number" min={0} max={322}
+                            value={occStayovers} onChange={e => setOccStayovers(e.target.value)}
+                            style={{ fontFamily: 'JetBrains Mono, monospace', padding: '6px 8px', fontSize: 13 }} />
+                        </div>
+                        <div className="form-row" style={{ marginBottom: 8 }}>
+                          <label className="form-label" style={{ fontSize: 10 }}>OOO</label>
+                          <input className="form-input" type="number" min={0} max={322}
+                            value={occOOO} onChange={e => setOccOOO(e.target.value)}
+                            style={{ fontFamily: 'JetBrains Mono, monospace', padding: '6px 8px', fontSize: 13 }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div className="form-row" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: 10 }}>ADR ($)</label>
+                          <input className="form-input" type="number" min={0} step={0.01}
+                            value={occADR} onChange={e => setOccADR(e.target.value)}
+                            placeholder="0.00"
+                            style={{ fontFamily: 'JetBrains Mono, monospace', padding: '6px 8px', fontSize: 13 }} />
+                        </div>
+                        <div className="form-row" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: 10 }}>Room Revenue ($)</label>
+                          <input className="form-input" type="number" min={0} step={0.01}
+                            value={occRevenue} onChange={e => setOccRevenue(e.target.value)}
+                            placeholder="0.00"
+                            style={{ fontFamily: 'JetBrains Mono, monospace', padding: '6px 8px', fontSize: 13 }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {occError && <div className="error-box" role="alert">{occError}</div>}
                   {occSuccess && <div role="status" style={{ background: 'var(--green-soft)', border: '1px solid rgba(34,197,94,.25)', borderRadius: 7, padding: '10px 14px', fontSize: 12, color: 'var(--green)', marginBottom: 12 }}>✓ Occupancy logged</div>}
                   <button type="submit" className="btn btn-primary" disabled={occSaving} style={{ width: '100%', justifyContent: 'center' }}>
@@ -282,8 +374,12 @@ export default function ReportsPage() {
                   <tr>
                     <th>Date</th>
                     <th className="text-right">Rooms</th>
-                    <th className="text-right">Total</th>
                     <th>Occupancy</th>
+                    <th className="text-right">Arr</th>
+                    <th className="text-right">Dep</th>
+                    <th className="text-right">Stay</th>
+                    <th className="text-right">OOO</th>
+                    <th className="text-right">ADR</th>
                     <th>Notes</th>
                   </tr>
                 </thead>
@@ -292,8 +388,12 @@ export default function ReportsPage() {
                     <tr key={log.id}>
                       <td style={{ fontWeight: 500 }}>{fmtDate(log.date)}</td>
                       <td className="text-right mono" style={{ fontWeight: 600 }}>{log.occupiedRooms}</td>
-                      <td className="text-right mono" style={{ color: 'var(--text-muted)' }}>{log.totalRooms}</td>
-                      <td style={{ minWidth: 160 }}><OccupancyBar pct={log.occupancyPct} /></td>
+                      <td style={{ minWidth: 140 }}><OccupancyBar pct={log.occupancyPct} /></td>
+                      <td className="text-right mono" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{log.arrivals ?? '—'}</td>
+                      <td className="text-right mono" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{log.departures ?? '—'}</td>
+                      <td className="text-right mono" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{log.stayovers ?? '—'}</td>
+                      <td className="text-right mono" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{log.ooo ?? '—'}</td>
+                      <td className="text-right mono" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{log.adr != null ? `$${log.adr}` : '—'}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{log.notes || '—'}</td>
                     </tr>
                   ))}
