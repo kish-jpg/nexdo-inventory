@@ -65,10 +65,47 @@ function txBadgeClass(type: string) {
 
 // ─── Chart config ─────────────────────────────────────────────────────────────
 
-const DEMAND_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+type OccupancyRow = {
+  date: string;
+  departures: number;
+  occupiedRooms: number;
+};
 
-const demandData = {
-  labels: DEMAND_LABELS,
+function buildDemandData(rows: OccupancyRow[]) {
+  const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date)).slice(-7);
+  const labels = sorted.map(r => {
+    const d = new Date(r.date);
+    return d.toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' });
+  });
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'Departures',
+        data: sorted.map(r => r.departures),
+        backgroundColor: '#E31937',
+        borderRadius: 5,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Occupied Rooms',
+        data: sorted.map(r => r.occupiedRooms),
+        type: 'line' as const,
+        borderColor: '#3B82F6',
+        backgroundColor: 'rgba(59,130,246,0.08)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointBackgroundColor: '#3B82F6',
+        yAxisID: 'y1',
+      },
+    ],
+  };
+}
+
+const STATIC_DEMAND_DATA = {
+  labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
   datasets: [
     {
       label: 'Departures',
@@ -146,6 +183,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState('');
+  const [occupancyRows, setOccupancyRows] = useState<OccupancyRow[]>([]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -174,7 +212,23 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => { fetchDashboard(); }, []);
+  const fetchOccupancy = async () => {
+    try {
+      const res = await fetch('/api/occupancy/data?limit=7');
+      if (!res.ok) return;
+      const json = await res.json();
+      const rows: OccupancyRow[] = (json.data || []).map((r: any) => ({
+        date: r.date || '',
+        departures: Number(r.departures) || 0,
+        occupiedRooms: Number(r.occupiedRooms) || 0,
+      }));
+      if (rows.length > 0) setOccupancyRows(rows);
+    } catch {
+      // silently fall back to static data
+    }
+  };
+
+  useEffect(() => { fetchDashboard(); fetchOccupancy(); }, []);
   useEffect(() => {
     const int = setInterval(fetchDashboard, 60000);
     return () => clearInterval(int);
@@ -278,7 +332,7 @@ export default function Dashboard() {
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>Opera PMS</span>
               </div>
               <div className="card-body" style={{ height: '260px' }}>
-                <Bar data={demandData as any} options={demandOptions as any} />
+                <Bar data={(occupancyRows.length > 0 ? buildDemandData(occupancyRows) : STATIC_DEMAND_DATA) as any} options={demandOptions as any} />
               </div>
             </div>
 

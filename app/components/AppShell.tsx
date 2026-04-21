@@ -184,11 +184,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Determine active nav
   const activePage = pathname === '/' ? 'dashboard'
-    : pathname.startsWith('/projects') ? 'projects'
-    : pathname.startsWith('/laundry')  ? 'laundry'
-    : pathname.startsWith('/hsk')      ? 'hsk'
-    : pathname.startsWith('/nexdo')    ? 'nexdo'
-    : pathname.startsWith('/reports')  ? 'reports'
+    : pathname.startsWith('/projects')  ? 'projects'
+    : pathname.startsWith('/laundry')   ? 'laundry'
+    : pathname.startsWith('/hsk')       ? 'hsk'
+    : pathname.startsWith('/nexdo')     ? 'nexdo'
+    : pathname.startsWith('/reports')   ? 'reports'
+    : pathname.startsWith('/occupancy') ? 'occupancy'
     : 'inventory';
 
   return (
