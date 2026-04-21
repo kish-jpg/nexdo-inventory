@@ -107,6 +107,15 @@ const HotelIcon = () => (
   </svg>
 );
 
+const OccupancyIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"/>
+    <path d="M3 7h18"/>
+    <path d="M10 11h4"/>
+    <path d="M10 15h4"/>
+  </svg>
+);
+
 const LogoutIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -129,6 +138,7 @@ const ChatIcon = () => (
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard',  href: '/',          Icon: DashboardIcon },
   { id: 'inventory', label: 'Inventory',  href: '/inventory', Icon: PackageIcon   },
+  { id: 'occupancy', label: 'Occupancy',  href: '/occupancy', Icon: OccupancyIcon },
   { id: 'projects',  label: 'Projects',   href: '/projects',  Icon: ProjectsIcon  },
   { id: 'laundry',   label: 'Laundry',    href: '/laundry',   Icon: LaundryIcon   },
   { id: 'hsk',       label: 'Housekeeping', href: '/hsk',     Icon: HskIcon       },
