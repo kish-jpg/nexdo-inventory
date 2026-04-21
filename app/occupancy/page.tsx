@@ -69,7 +69,7 @@ export default function OccupancyPage() {
 
       const json = await res.json();
       if (res.ok) {
-        setUploadMsg(`✓ ${json.message}`);
+        setUploadMsg(`✓ ${json.message} | Sheet now has ${json.sheetRowCount} rows`);
         // Use fresh=1 to bust any cached data from before the upload
         await loadData(true);
       } else {
