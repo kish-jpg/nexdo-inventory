@@ -1875,3 +1875,51 @@ export async function getProjectsDashboard() {
   };
 }
 
+
+// ─── Batch occupancy import ────────────────────────────────────────────────────
+
+/**
+ * Import many occupancy records in a single Google Sheets API call.
+ * Skips dates that already exist. Returns count of rows actually written.
+ */
+export async function batchSaveOccupancyLogs(logs: OccupancyInput[]): Promise<number> {
+  if (logs.length === 0) return 0;
+
+  // Read existing dates so we can skip duplicates
+  const existing = await sheetsGet('Occupancy!A:B');
+  const existingDates = new Set(existing.slice(1).map(r => r[1] ?? ''));
+
+  // Determine starting ID
+  const ids = existing.slice(1).map(r => parseInt(r[0] ?? '0')).filter(n => !isNaN(n) && n > 0);
+  let nextIdVal = ids.length === 0 ? 1 : Math.max(...ids) + 1;
+
+  const timestamp = new Date().toISOString();
+  const rows: (string | number | null)[][] = [];
+
+  for (const log of logs) {
+    if (existingDates.has(log.date)) continue; // skip duplicates
+    const row: (string | number | null)[] = [
+      nextIdVal++,
+      log.date,
+      log.occupiedRooms,
+      TOTAL_ROOMS,
+      log.notes ?? '',
+      timestamp,
+      log.arrivals ?? '',
+      log.departures ?? '',
+      log.stayovers ?? '',
+      log.houseUse ?? '',
+      log.dayUse ?? '',
+      log.noShow ?? '',
+      log.ooo ?? '',
+      log.adr ?? '',
+      log.roomRevenue ?? '',
+      log.source ?? 'Opera-Import',
+    ];
+    rows.push(row);
+  }
+
+  if (rows.length === 0) return 0;
+  await sheetsBatchAppend('Occupancy', rows);
+  return rows.length;
+}
