@@ -1289,7 +1289,7 @@ export const HSK_PHONE_COUNT = 15;
 
 const HSK_ROSTER_HEADERS = ['id', 'phoneId', 'name', 'role', 'active', 'notes', 'timestamp'];
 const HSK_ASSIGN_HEADERS = ['id', 'date', 'phoneId', 'housekeeperName', 'shift', 'startTime', 'endTime', 'notes', 'timestamp'];
-const HSK_PERF_HEADERS   = ['id', 'date', 'phoneId', 'housekeeperName', 'roomsAssigned', 'departuresDone', 'stayoversDone', 'roomsCleaned', 'minutesWorked', 'avgMinsPerRoom', 'qualityScore', 'notes', 'source', 'timestamp'];
+const HSK_PERF_HEADERS   = ['id', 'date', 'phoneId', 'housekeeperName', 'roomsAssigned', 'departuresDone', 'stayoversDone', 'roomsCleaned', 'minutesWorked', 'avgMinsPerRoom', 'qualityScore', 'failCount', 'reworkCount', 'creditsEarned', 'inspectionsDone', 'notes', 'source', 'timestamp'];
 
 export type HSKRosterEntry = {
   id: number; phoneId: number; name: string; role: string;
@@ -1305,7 +1305,9 @@ export type HSKPerformanceEntry = {
   id: number; date: string; phoneId: number; housekeeperName: string;
   roomsAssigned: number; departuresDone: number; stayoversDone: number;
   roomsCleaned: number; minutesWorked: number; avgMinsPerRoom: number | null;
-  qualityScore: number | null; notes: string; source: string; timestamp: string;
+  qualityScore: number | null;
+  failCount: number; reworkCount: number; creditsEarned: number; inspectionsDone: number;
+  notes: string; source: string; timestamp: string;
 };
 
 export async function initHSKSheets(): Promise<void> {
@@ -1314,7 +1316,7 @@ export async function initHSKSheets(): Promise<void> {
   await ensureSheet('HSKPerformance');
   await sheetsUpdate('HSKRoster!A1:G1', HSK_ROSTER_HEADERS);
   await sheetsUpdate('HSKAssignments!A1:I1', HSK_ASSIGN_HEADERS);
-  await sheetsUpdate('HSKPerformance!A1:N1', HSK_PERF_HEADERS);
+  await sheetsUpdate('HSKPerformance!A1:R1', HSK_PERF_HEADERS);
 }
 
 // ─── Roster ───────────────────────────────────────────────────────────────────
@@ -1408,7 +1410,7 @@ export async function deleteHSKAssignment(id: number): Promise<boolean> {
 export async function getHSKPerformance(opts?: {
   date?: string; phoneId?: number; fromDate?: string; toDate?: string; limit?: number;
 }): Promise<HSKPerformanceEntry[]> {
-  const rows = await sheetsGet('HSKPerformance!A:N');
+  const rows = await sheetsGet('HSKPerformance!A:R');
   if (rows.length <= 1) return [];
   let entries = rows.slice(1).filter(r => r[0]).map(r => {
     const roomsCleaned = ni(r[7]);
@@ -1422,7 +1424,9 @@ export async function getHSKPerformance(opts?: {
       minutesWorked: minutes,
       avgMinsPerRoom: avgM ?? (roomsCleaned > 0 ? +(minutes / roomsCleaned).toFixed(1) : null),
       qualityScore: n(r[10]),
-      notes: r[11] ?? '', source: r[12] || 'Manual', timestamp: r[13] ?? '',
+      failCount: ni(r[11]), reworkCount: ni(r[12]),
+      creditsEarned: ni(r[13]), inspectionsDone: ni(r[14]),
+      notes: r[15] ?? '', source: r[16] || 'Manual', timestamp: r[17] ?? '',
     };
   });
   if (opts?.date) entries = entries.filter(e => e.date === opts.date);
@@ -1437,23 +1441,30 @@ export async function getHSKPerformance(opts?: {
 export async function saveHSKPerformance(p: {
   date: string; phoneId: number; housekeeperName: string;
   roomsAssigned: number; departuresDone: number; stayoversDone: number;
-  minutesWorked: number; qualityScore?: number | null; notes?: string; source?: string;
+  minutesWorked: number; qualityScore?: number | null;
+  failCount?: number; reworkCount?: number; creditsEarned?: number; inspectionsDone?: number;
+  notes?: string; source?: string;
 }): Promise<HSKPerformanceEntry> {
   // Upsert by (date, phoneId)
-  const rows = await sheetsGet('HSKPerformance!A:N');
+  const rows = await sheetsGet('HSKPerformance!A:R');
   const existing = rows.slice(1).findIndex(r => r[1] === p.date && ni(r[2]) === p.phoneId);
   const id = existing >= 0 ? ni(rows[existing + 1][0]) : await nextId('HSKPerformance');
   const timestamp = new Date().toISOString();
   const roomsCleaned = p.departuresDone + p.stayoversDone;
   const avgMinsPerRoom = roomsCleaned > 0 ? +(p.minutesWorked / roomsCleaned).toFixed(1) : 0;
+  const failCount = p.failCount ?? 0;
+  const reworkCount = p.reworkCount ?? 0;
+  const creditsEarned = p.creditsEarned ?? 0;
+  const inspectionsDone = p.inspectionsDone ?? 0;
   const row = [
     id, p.date, p.phoneId, p.housekeeperName,
     p.roomsAssigned, p.departuresDone, p.stayoversDone, roomsCleaned,
     p.minutesWorked, avgMinsPerRoom,
-    p.qualityScore ?? '', p.notes ?? '', p.source ?? 'Manual', timestamp,
+    p.qualityScore ?? '', failCount, reworkCount, creditsEarned, inspectionsDone,
+    p.notes ?? '', p.source ?? 'Manual', timestamp,
   ];
   if (existing >= 0) {
-    await sheetsUpdate(`HSKPerformance!A${existing + 2}:N${existing + 2}`, row);
+    await sheetsUpdate(`HSKPerformance!A${existing + 2}:R${existing + 2}`, row);
   } else {
     await sheetsAppend('HSKPerformance', row);
   }
@@ -1463,15 +1474,16 @@ export async function saveHSKPerformance(p: {
     roomsAssigned: p.roomsAssigned, departuresDone: p.departuresDone,
     stayoversDone: p.stayoversDone, roomsCleaned,
     minutesWorked: p.minutesWorked, avgMinsPerRoom,
-    qualityScore: p.qualityScore ?? null, notes: p.notes ?? '',
-    source: p.source ?? 'Manual', timestamp,
+    qualityScore: p.qualityScore ?? null,
+    failCount, reworkCount, creditsEarned, inspectionsDone,
+    notes: p.notes ?? '', source: p.source ?? 'Manual', timestamp,
   };
 }
 
 export async function deleteHSKPerformance(id: number): Promise<boolean> {
   const row = await findRowByID('HSKPerformance', id);
   if (!row) return false;
-  await sheetsClear(`HSKPerformance!A${row}:N${row}`);
+  await sheetsClear(`HSKPerformance!A${row}:R${row}`);
   invalidateCache();
   return true;
 }

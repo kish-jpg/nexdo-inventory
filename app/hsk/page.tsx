@@ -18,7 +18,9 @@ type PerfEntry = {
   id: number; date: string; phoneId: number; housekeeperName: string;
   roomsAssigned: number; departuresDone: number; stayoversDone: number;
   roomsCleaned: number; minutesWorked: number; avgMinsPerRoom: number | null;
-  qualityScore: number | null; notes: string; source: string; timestamp: string;
+  qualityScore: number | null;
+  failCount: number; reworkCount: number; creditsEarned: number; inspectionsDone: number;
+  notes: string; source: string; timestamp: string;
 };
 
 type DailyKPI = {
@@ -112,6 +114,10 @@ export default function HSKPage() {
   const [perfSaving, setPerfSaving] = useState(false);
   const [perfError, setPerfError] = useState('');
   const [perfSuccess, setPerfSuccess] = useState(false);
+
+  // HotelKit import
+  const [hkImporting, setHkImporting] = useState(false);
+  const [hkImportMsg, setHkImportMsg] = useState('');
 
   // Assignment form state (inline on board)
   const [editingPhone, setEditingPhone] = useState<number | null>(null);
@@ -308,6 +314,30 @@ export default function HSKPage() {
     await loadPerformance();
   }
 
+  async function importHotelKit(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setHkImporting(true);
+    setHkImportMsg('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/hsk/performance/import', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (res.ok) {
+        setHkImportMsg(`✓ ${json.message}`);
+        await loadPerformance();
+      } else {
+        setHkImportMsg(`✗ ${json.error}`);
+      }
+    } catch {
+      setHkImportMsg('✗ Import failed');
+    } finally {
+      setHkImporting(false);
+      e.target.value = '';
+    }
+  }
+
   // ── Derived stats ──────────────────────────────────────────────────────────
 
   const assignmentByPhone = useMemo(() => {
@@ -325,7 +355,11 @@ export default function HSKPage() {
       minutes: s.minutes + (e.minutesWorked || 0),
       qualitySum: s.qualitySum + (e.qualityScore ?? 0),
       qualityCount: s.qualityCount + (e.qualityScore != null ? 1 : 0),
-    }), { roomsAssigned: 0, roomsCleaned: 0, minutes: 0, qualitySum: 0, qualityCount: 0 });
+      fails: s.fails + (e.failCount || 0),
+      reworks: s.reworks + (e.reworkCount || 0),
+      credits: s.credits + (e.creditsEarned || 0),
+      inspections: s.inspections + (e.inspectionsDone || 0),
+    }), { roomsAssigned: 0, roomsCleaned: 0, minutes: 0, qualitySum: 0, qualityCount: 0, fails: 0, reworks: 0, credits: 0, inspections: 0 });
     return {
       ...total,
       avgMins: total.roomsCleaned > 0 ? +(total.minutes / total.roomsCleaned).toFixed(1) : null,
@@ -663,8 +697,8 @@ export default function HSKPage() {
       {/* ── PERFORMANCE ────────────────────────────────────────────────────── */}
       {tab === 'performance' && (
         <div>
-          {/* Window + date controls */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Window + date controls + HotelKit import */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>Window:</span>
             {[7, 14, 30, 60, 90].map(d => (
               <button key={d} onClick={() => setPerfWindow(d)}
@@ -673,13 +707,35 @@ export default function HSKPage() {
             <span style={{ marginLeft: 16, fontSize: 12, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>Date:</span>
             <input type="date" value={perfDate} onChange={e => setPerfDate(e.target.value)}
               className="form-input" style={{ width: 'auto', padding: '6px 10px', fontSize: 13 }} />
+            {/* HotelKit import */}
+            <label style={{
+              marginLeft: 16,
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '6px 14px', borderRadius: 7,
+              background: 'var(--gold-soft)', border: '1px solid rgba(251,191,36,.3)',
+              color: 'var(--gold)', fontSize: 12, fontWeight: 600, cursor: hkImporting ? 'default' : 'pointer',
+              opacity: hkImporting ? 0.7 : 1,
+            }}>
+              {hkImporting ? <Spinner /> : '⬆'} Import HotelKit
+              <input type="file" accept=".xlsx,.xls" onChange={importHotelKit}
+                disabled={hkImporting} style={{ display: 'none' }} />
+            </label>
             <button className="btn btn-ghost btn-sm" onClick={loadPerformance} style={{ marginLeft: 'auto', padding: '5px 12px' }}>
               {perfLoading ? <Spinner /> : 'Refresh'}
             </button>
           </div>
+          {/* Import status message */}
+          {hkImportMsg && (
+            <div role="status" style={{
+              marginBottom: 12, padding: '9px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500,
+              background: hkImportMsg.startsWith('✓') ? 'var(--green-soft)' : 'var(--red-soft)',
+              color: hkImportMsg.startsWith('✓') ? 'var(--green)' : 'var(--red)',
+              border: `1px solid ${hkImportMsg.startsWith('✓') ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)'}`,
+            }}>{hkImportMsg}</div>
+          )}
 
           {/* KPI cards for selected date */}
-          <div className="kpi-grid stagger-in" style={{ marginBottom: 20 }}>
+          <div className="kpi-grid stagger-in" style={{ marginBottom: 20, gridTemplateColumns: 'repeat(4, 1fr)' }}>
             <div className="kpi-card kpi-blue">
               <div className="kpi-label">Rooms Cleaned</div>
               <div className="kpi-value">{totalsForDate.roomsCleaned}</div>
@@ -693,14 +749,14 @@ export default function HSKPage() {
               <div className="kpi-trend">{Math.round(totalsForDate.minutes / 60)} hrs worked</div>
             </div>
             <div className="kpi-card kpi-green">
-              <div className="kpi-label">Rooms / Hour</div>
-              <div className="kpi-value">{totalsForDate.roomsPerHour !== null ? totalsForDate.roomsPerHour : '—'}</div>
-              <div className="kpi-trend">team efficiency</div>
+              <div className="kpi-label">Quality %</div>
+              <div className="kpi-value">{totalsForDate.avgQuality !== null ? `${totalsForDate.avgQuality}%` : '—'}</div>
+              <div className="kpi-trend">{totalsForDate.fails + totalsForDate.reworks} fails/reworks</div>
             </div>
             <div className="kpi-card kpi-red">
-              <div className="kpi-label">Avg Quality</div>
-              <div className="kpi-value">{totalsForDate.avgQuality !== null ? totalsForDate.avgQuality : '—'}</div>
-              <div className="kpi-trend">out of 10</div>
+              <div className="kpi-label">Credits Earned</div>
+              <div className="kpi-value">{totalsForDate.credits > 0 ? totalsForDate.credits : '—'}</div>
+              <div className="kpi-trend">{totalsForDate.inspections} inspections done</div>
             </div>
           </div>
 
@@ -807,13 +863,16 @@ export default function HSKPage() {
                       <tr>
                         <th>Phone</th>
                         <th>Housekeeper</th>
-                        <th className="text-right">Assigned</th>
                         <th className="text-right">Dep</th>
                         <th className="text-right">Stay</th>
                         <th className="text-right">Total</th>
-                        <th className="text-right">Mins</th>
                         <th className="text-right">Min/Rm</th>
-                        <th className="text-right">Quality</th>
+                        <th className="text-right">Fails</th>
+                        <th className="text-right">Rework</th>
+                        <th className="text-right">Credits</th>
+                        <th className="text-right">Insp</th>
+                        <th className="text-right">Quality%</th>
+                        <th className="text-right">Src</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -821,20 +880,33 @@ export default function HSKPage() {
                       {perfEntries.map(e => (
                         <tr key={e.id}>
                           <td className="mono" style={{ fontWeight: 600 }}>📱 {String(e.phoneId).padStart(2, '0')}</td>
-                          <td style={{ fontSize: 12 }}>{e.housekeeperName}</td>
-                          <td className="text-right mono">{e.roomsAssigned || '—'}</td>
+                          <td style={{ fontSize: 11 }}>{e.housekeeperName.replace('Housekeeping ', 'HK ')}</td>
                           <td className="text-right mono">{e.departuresDone || '—'}</td>
                           <td className="text-right mono">{e.stayoversDone || '—'}</td>
                           <td className="text-right mono" style={{ fontWeight: 600 }}>{e.roomsCleaned || '—'}</td>
-                          <td className="text-right mono" style={{ color: 'var(--text-muted)' }}>{e.minutesWorked || '—'}</td>
                           <td className="text-right mono">{e.avgMinsPerRoom ?? '—'}</td>
+                          <td className="text-right mono" style={{ color: (e.failCount || 0) > 0 ? 'var(--red)' : 'var(--text-muted)' }}>
+                            {e.failCount || 0}
+                          </td>
+                          <td className="text-right mono" style={{ color: (e.reworkCount || 0) > 0 ? 'var(--amber)' : 'var(--text-muted)' }}>
+                            {e.reworkCount || 0}
+                          </td>
+                          <td className="text-right mono" style={{ color: 'var(--gold)' }}>
+                            {e.creditsEarned || 0}
+                          </td>
+                          <td className="text-right mono" style={{ color: 'var(--text-muted)' }}>
+                            {e.inspectionsDone || 0}
+                          </td>
                           <td className="text-right mono">
                             {e.qualityScore != null ? (
                               <span style={{
-                                color: e.qualityScore >= 8 ? 'var(--green)' : e.qualityScore >= 6 ? 'var(--amber)' : 'var(--red)',
+                                color: e.qualityScore >= 90 ? 'var(--green)' : e.qualityScore >= 70 ? 'var(--amber)' : 'var(--red)',
                                 fontWeight: 600,
-                              }}>{e.qualityScore}</span>
+                              }}>{e.qualityScore}%</span>
                             ) : '—'}
+                          </td>
+                          <td className="text-right" style={{ fontSize: 9, color: 'var(--text-subtle)', fontFamily: 'JetBrains Mono, monospace' }}>
+                            {e.source === 'HotelKit' ? 'HK' : 'M'}
                           </td>
                           <td>
                             <button className="btn btn-ghost btn-sm" onClick={() => deletePerf(e.id)}
