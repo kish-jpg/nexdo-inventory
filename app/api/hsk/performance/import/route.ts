@@ -25,6 +25,7 @@
  *   - Work day is an Excel date serial; converted to YYYY-MM-DD.
  */
 
+import * as XLSX from 'xlsx';
 import { saveHSKPerformance } from '@/lib/sheets';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -65,9 +66,8 @@ export async function POST(req: Request) {
       return Response.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Read file as ArrayBuffer then parse with xlsx (dynamic import for edge compat)
+    // Read file as ArrayBuffer then parse with xlsx
     const buffer = await file.arrayBuffer();
-    const XLSX = await import('xlsx');
     const wb = XLSX.read(Buffer.from(buffer), { type: 'buffer' });
 
     const sheetName = wb.SheetNames[0];
