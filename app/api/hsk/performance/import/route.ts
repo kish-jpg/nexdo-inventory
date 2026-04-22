@@ -30,12 +30,6 @@ import { saveHSKPerformance } from '@/lib/sheets';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-/** Excel date serial (e.g. 46113) → "2026-04-01" */
-function serialToDate(serial: number): string {
-  const ms = Math.round((serial - 25569) * 86400 * 1000);
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
 /** "50min" | "1h 20min" | "0min" → minutes as integer */
 function parseDuration(s: string): number {
   if (!s) return 0;
@@ -61,8 +55,29 @@ function cellStr(cell: ExcelJS.Cell): string {
 function cellNum(cell: ExcelJS.Cell): number {
   const v = cell?.value;
   if (v === null || v === undefined) return 0;
+  if (v instanceof Date) return 0; // dates handled by cellDate
   const n = typeof v === 'number' ? v : parseFloat(String(v));
   return isNaN(n) ? 0 : n;
+}
+
+/**
+ * Extract a YYYY-MM-DD date string from a Work day cell.
+ * exceljs returns Date objects for date-formatted cells.
+ * Falls back to serial-number conversion for legacy files.
+ */
+function cellDate(cell: ExcelJS.Cell): string | null {
+  const v = cell?.value;
+  if (v === null || v === undefined) return null;
+  if (v instanceof Date) {
+    // exceljs Date objects are in UTC; slice to YYYY-MM-DD
+    return v.toISOString().slice(0, 10);
+  }
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  if (!isNaN(n) && n > 40000) {
+    // Excel serial to date
+    return new Date(Math.round((n - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+  }
+  return null;
 }
 
 const DONE_STATUSES = new Set([
@@ -130,9 +145,9 @@ export async function POST(req: Request) {
 
     // ─── Aggregate per (workDay serial, assignedTo) ──────────────────────────
 
-    type StaffKey = string; // `${workDay}__${assignedTo}`
+    type StaffKey = string; // `${date}__${assignedTo}`
     interface Agg {
-      workDay: number;
+      date: string;
       assignedTo: string;
       phoneId: number;
       totalCleaningRows: number;
@@ -150,7 +165,7 @@ export async function POST(req: Request) {
     ws.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // skip header
 
-      const workDayRaw = cellNum(row.getCell(iWorkDay));
+      const date       = cellDate(row.getCell(iWorkDay));
       const assignedTo = cellStr(row.getCell(iAssigned));
       const routine    = cellStr(row.getCell(iRoutine));
       const status     = cellStr(row.getCell(iStatus));
@@ -159,16 +174,16 @@ export async function POST(req: Request) {
       const credits    = cellNum(row.getCell(iCredits));
       const rework     = cellNum(row.getCell(iRework));
 
-      // Only process "Housekeeping N" staff
+      // Only process "Housekeeping N" staff on a valid date
+      if (!date) return;
       if (!assignedTo || !/^Housekeeping \d+$/.test(assignedTo)) return;
-      if (!workDayRaw || workDayRaw < 40000) return; // not a valid Excel date serial
 
       const phoneId = parseInt(assignedTo.replace('Housekeeping ', ''));
-      const key: StaffKey = `${workDayRaw}__${assignedTo}`;
+      const key: StaffKey = `${date}__${assignedTo}`;
 
       if (!map.has(key)) {
         map.set(key, {
-          workDay: workDayRaw, assignedTo, phoneId,
+          date, assignedTo, phoneId,
           totalCleaningRows: 0,
           depsDone: 0, staysDone: 0, totalMins: 0, credits: 0,
           fails: 0, reworks: 0,
@@ -201,7 +216,7 @@ export async function POST(req: Request) {
     const results: Array<{ date: string; phoneId: number; name: string; ok: boolean; error?: string }> = [];
 
     for (const agg of map.values()) {
-      const date = serialToDate(agg.workDay);
+      const date = agg.date;
       const roomsCleaned = agg.depsDone + agg.staysDone;
       const qualityScore = roomsCleaned > 0
         ? +((((roomsCleaned - agg.fails - agg.reworks) / roomsCleaned) * 100).toFixed(1))
